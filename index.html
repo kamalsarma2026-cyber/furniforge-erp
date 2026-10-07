@@ -11,18 +11,18 @@
   <!-- Vector jsPDF & AutoTable -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-  <!-- QRCode.js (For Generating Label Stickers) -->
+  <!-- QRCode.js (Sticker Generator) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <!-- HTML5-QRCode (For Live Camera Scanning on Phone/Tablet/Webcam) -->
+  <!-- HTML5-QRCode (Live Camera Scanner) -->
   <script src="https://unpkg.com/html5-qrcode"></script>
-  <!-- Firebase App & Realtime Database SDK (v9 Compat) -->
+  <!-- Firebase SDK (v9 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
     @media print {
       body * { visibility: hidden !important; }
-      #printableModalContent, #printableModalContent * { visibility: visible !important; }
-      #printableModalContent { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; }
+      #printableModalContent, #printableModalContent *, #printableStickerArea, #printableStickerArea * { visibility: visible !important; }
+      #printableModalContent, #printableStickerArea { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; }
       .no-print { display: none !important; }
     }
   </style>
@@ -62,7 +62,7 @@
         </nav>
 
         <div class="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l sm:pl-3 border-slate-700 pt-2 sm:pt-0">
-          <button onclick="openModal('modal-cloud-sync')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center gap-1 transition">
+          <button onclick="openModal('modal-cloud-sync')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center gap-1 transition" title="Setup Team Cloud Sync via Google Firebase">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
             Cloud Sync
           </button>
@@ -127,7 +127,7 @@
       </div>
     </section>
 
-    <!-- 2. FINISHED GOODS (WITH QR CODE INWARD SCANNING & LABEL GENERATION) -->
+    <!-- 2. FINISHED GOODS (WITH SINGLE-SCAN QR CODE SCANNING & LABEL GENERATOR) -->
     <section id="sec-finished" class="tab-content hidden space-y-4">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
         <div>
@@ -401,8 +401,8 @@
 
   <!-- MODALS -->
 
-  <!-- Modal: Live QR Code Inward Scanner -->
-  <div id="modal-qr-scanner" class="fixed inset-0 bg-slate-900/70 hidden items-center justify-center p-4 z-50">
+  <!-- Modal: Live QR Scanner with Single-Scan Pause Overlay -->
+  <div id="modal-qr-scanner" class="fixed inset-0 bg-slate-900/75 hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
         <div class="flex items-center gap-2">
@@ -410,19 +410,40 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
           </span>
           <div>
-            <h3 class="text-base font-black text-slate-900">QR Stock Inward Scanner</h3>
-            <p class="text-[11px] text-slate-500">Camera scanner or Handheld Barcode gun</p>
+            <h3 class="text-base font-black text-slate-900">Single-Item QR Inward Scanner</h3>
+            <p class="text-[11px] text-slate-500">Scans one carton at a time to prevent duplicate entry</p>
           </div>
         </div>
         <button onclick="closeQRScannerModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
       </div>
 
-      <!-- Live Video Viewport Container -->
-      <div id="qr-reader-container" class="overflow-hidden rounded-xl border-2 border-dashed border-purple-300 bg-slate-950 flex flex-col items-center justify-center min-h-[260px] text-white">
+      <!-- Camera Viewport with Freeze Overlay -->
+      <div class="relative overflow-hidden rounded-xl border-2 border-dashed border-purple-300 bg-slate-950 flex flex-col items-center justify-center min-h-[240px]">
         <div id="qr-reader" class="w-full"></div>
+        
+        <div id="qr-freeze-overlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm hidden flex-col items-center justify-center p-4 text-center space-y-3 z-20">
+          <div class="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+          <div>
+            <h4 class="text-sm font-black text-white" id="qr-scan-item-title">Item Inwarded</h4>
+            <p class="text-xs text-emerald-400 font-mono mt-0.5" id="qr-scan-item-detail"></p>
+          </div>
+          <button onclick="resumeScanningNextItem()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Scan Next Carton
+          </button>
+        </div>
       </div>
 
-      <!-- Quantity Step setting -->
+      <!-- Photo Picker Fallback -->
+      <label class="w-full bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-lg p-2 text-center text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 transition">
+        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+        Snap Photo / Pick Image
+        <input type="file" accept="image/*" capture="environment" onchange="scanQrFromImageFile(event)" class="hidden">
+      </label>
+
+      <!-- Inward Step Qty -->
       <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border text-xs">
         <span class="font-bold text-slate-700">Inward Qty per Scan:</span>
         <div class="flex items-center gap-1.5">
@@ -431,14 +452,8 @@
         </div>
       </div>
 
-      <!-- Manual barcode gun input backup -->
-      <div class="space-y-1">
-        <label class="block text-[11px] font-bold text-slate-600">Barcode Gun / Keyboard Input (Auto-reads):</label>
-        <input type="text" id="qr-manual-input" onkeydown="handleManualScannerInput(event)" placeholder="Paste or scan with USB scanner gun here..." class="w-full border rounded-lg p-2 text-xs font-mono bg-white outline-none focus:border-purple-500">
-      </div>
-
-      <!-- Recent Scan Confirmation Alert Box -->
-      <div id="qr-last-scan-status" class="hidden p-3 rounded-xl border text-xs font-medium space-y-1 transition-all"></div>
+      <!-- USB Gun Input -->
+      <input type="text" id="qr-manual-input" onkeydown="handleManualScannerInput(event)" placeholder="USB Scanner Gun auto-reads here..." class="w-full border rounded-lg p-2 text-xs font-mono bg-white outline-none focus:border-purple-500">
 
       <div class="flex justify-end pt-1">
         <button type="button" onclick="closeQRScannerModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold">Close Scanner</button>
@@ -454,14 +469,13 @@
         <button onclick="closeModal('modal-qr-label')" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
       </div>
 
-      <!-- Printable Sticker Box -->
-      <div id="printableQrSticker" class="border-2 border-slate-900 p-4 rounded-xl bg-white space-y-3 text-center shadow-sm">
+      <div id="printableStickerArea" class="border-2 border-slate-900 rounded-xl p-4 bg-white space-y-3 text-center shadow-sm">
         <div class="flex items-center justify-between border-b-2 border-slate-900 pb-2">
           <div class="text-left">
             <h4 class="text-base font-black tracking-wider text-slate-950 uppercase">FURNIFORGE</h4>
-            <p class="text-[9px] font-bold text-amber-700 tracking-wider">FINELY CRAFTED FURNITURE</p>
+            <p class="text-[9px] font-bold text-amber-700 uppercase tracking-wider">FINELY CRAFTED FURNITURE</p>
           </div>
-          <span class="text-[9px] font-mono border px-1.5 py-0.5 rounded font-black bg-slate-100">PASS QC</span>
+          <span class="text-[9px] font-mono border-2 border-slate-900 px-1.5 py-0.5 rounded font-black bg-slate-50">PASS QC</span>
         </div>
 
         <div id="qr-code-display" class="flex justify-center py-2"></div>
@@ -884,19 +898,19 @@
     });
 
     // Master State Management
-    let sfgStock = JSON.parse(localStorage.getItem('ff_sfg_v11')) || [
+    let sfgStock = JSON.parse(localStorage.getItem('ff_sfg_master')) || [
       { id: '1', code: 'SFG-FRM-01', desc: 'Heavy Tubular Frame Weldment', shade: 'RAL 9005 Matte Black', stage: 'MIG/TIG Welding Stage', qty: 45, lowLimit: 25, critLimit: 10 },
       { id: '2', code: 'SFG-PLT-04', desc: 'CNC Cut Base Plates 12mm', shade: 'Raw Primer Gray', stage: 'Shot Blasting & Pickling', qty: 12, lowLimit: 25, critLimit: 10 },
       { id: '3', code: 'SFG-LEG-09', desc: 'Tapered Heavy Steel Legs', shade: 'RAL 7016 Anthracite', stage: 'Powder Coating Line', qty: 8, lowLimit: 20, critLimit: 10 }
     ];
 
-    let fgStock = JSON.parse(localStorage.getItem('ff_fg_v11')) || [
+    let fgStock = JSON.parse(localStorage.getItem('ff_fg_master')) || [
       { id: '1', code: 'FG-DSK-900', name: 'Forged Executive Metal Desk', shade: 'RAL 9005 Jet Black', qty: 15, lowLimit: 25, critLimit: 10 },
       { id: '2', code: 'FG-CHR-402', name: 'Industrial Ergonomic Steel Swivel Chair', shade: 'RAL 7016 Anthracite', qty: 28, lowLimit: 25, critLimit: 10 },
       { id: '3', code: 'FG-RMT-100', name: 'Heavy Duty Modular Assembly Rack 4-Tier', shade: 'RAL 5010 Gentian Blue', qty: 60, lowLimit: 30, critLimit: 15 }
     ];
 
-    let packingSlips = JSON.parse(localStorage.getItem('ff_packing_v11')) || [
+    let packingSlips = JSON.parse(localStorage.getItem('ff_packing_master')) || [
       {
         id: 'PS-FF-1001',
         customer: 'Apex Infrastructure & Interiors Pvt Ltd',
@@ -912,7 +926,7 @@
       }
     ];
 
-    let dispatchRecords = JSON.parse(localStorage.getItem('ff_dispatch_v11')) || [
+    let dispatchRecords = JSON.parse(localStorage.getItem('ff_dispatch_master')) || [
       {
         id: 'GP-FF-901',
         date: '2026-10-06 09:30 AM',
@@ -926,7 +940,7 @@
       }
     ];
 
-    let optimizerItems = JSON.parse(localStorage.getItem('ff_optimizer_items_v11')) || [
+    let optimizerItems = JSON.parse(localStorage.getItem('ff_optimizer_master')) || [
       { id: 'c1', name: 'FG-DSK-900 (Metal Desk Flatpack)', boxes: 10, length: 150, width: 80, height: 25, weight: 45, maxTier: 4 },
       { id: 'c2', name: 'FG-CHR-402 (Steel Swivel Chair Box)', boxes: 20, length: 65, width: 65, height: 60, weight: 18, maxTier: 3 },
       { id: 'c3', name: 'FG-RMT-100 (Modular Rack Bundles)', boxes: 12, length: 200, width: 50, height: 20, weight: 35, maxTier: 5 }
@@ -935,57 +949,68 @@
     let currentDraftPackingItems = [];
     let editBackupOldItems = null;
 
-    // Firebase state
+    // Firebase live state
     let fbDatabase = null;
     let isCloudConnected = false;
     let isSyncingFromCloud = false;
 
     function saveAll() {
-      localStorage.setItem('ff_sfg_v11', JSON.stringify(sfgStock));
-      localStorage.setItem('ff_fg_v11', JSON.stringify(fgStock));
-      localStorage.setItem('ff_packing_v11', JSON.stringify(packingSlips));
-      localStorage.setItem('ff_dispatch_v11', JSON.stringify(dispatchRecords));
-      localStorage.setItem('ff_optimizer_items_v11', JSON.stringify(optimizerItems));
+      localStorage.setItem('ff_sfg_master', JSON.stringify(sfgStock));
+      localStorage.setItem('ff_fg_master', JSON.stringify(fgStock));
+      localStorage.setItem('ff_packing_master', JSON.stringify(packingSlips));
+      localStorage.setItem('ff_dispatch_master', JSON.stringify(dispatchRecords));
+      localStorage.setItem('ff_optimizer_master', JSON.stringify(optimizerItems));
       pushLocalToCloud();
     }
 
     // ========================================================
-    // QR CODE SCANNING & AUTOMATIC FINISHED GOOD INWARD
+    // SINGLE-SCAN QR CODE SCANNER (WITH FREEZE LOCKOUT)
     // ========================================================
     let html5QrScanner = null;
+    let isProcessingScan = false;
+
+    function playScanBeep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch(e) {}
+    }
 
     function openQRScannerModal() {
-      document.getElementById('qr-last-scan-status').classList.add('hidden');
+      isProcessingScan = false;
+      document.getElementById('qr-freeze-overlay').classList.add('hidden');
+      document.getElementById('qr-freeze-overlay').classList.remove('flex');
       document.getElementById('qr-manual-input').value = '';
       openModal('modal-qr-scanner');
 
-      // Start HTML5 Live Camera
       if (!html5QrScanner) {
         html5QrScanner = new Html5Qrcode("qr-reader");
       }
 
       html5QrScanner.start(
-        { facingMode: "environment" }, // Prefer rear camera on mobile
+        { facingMode: "environment" },
         { fps: 10, qrbox: { width: 220, height: 220 } },
         onQrScanSuccess,
         onQrScanFailure
       ).catch(err => {
-        console.warn("Camera could not be accessed directly:", err);
-        document.getElementById('qr-reader-container').innerHTML = `
-          <div class="p-6 text-center text-xs space-y-2 text-slate-300">
-            <svg class="w-8 h-8 mx-auto text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-            <p><b>Camera permission not granted or no webcam available.</b></p>
-            <p class="text-slate-400">You can still scan cartons instantly using your handheld USB scanner gun or pasting code into the box below!</p>
-          </div>
-        `;
+        console.warn("Camera init notification:", err);
       });
 
       setTimeout(() => {
         document.getElementById('qr-manual-input').focus();
-      }, 500);
+      }, 400);
     }
 
     function closeQRScannerModal() {
+      isProcessingScan = false;
       if (html5QrScanner && html5QrScanner.isScanning) {
         html5QrScanner.stop().catch(err => console.error(err));
       }
@@ -993,38 +1018,44 @@
     }
 
     function onQrScanFailure(error) {
-      // Quietly ignore failed frame reads
+      // Quietly continue on unread frames
     }
 
     function onQrScanSuccess(decodedText, decodedResult) {
+      if (isProcessingScan) return;
+      isProcessingScan = true;
+
+      if (html5QrScanner && html5QrScanner.isScanning) {
+        html5QrScanner.pause();
+      }
+
+      playScanBeep();
       processScannedData(decodedText);
     }
 
-    function handleManualScannerInput(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const val = e.target.value.trim();
-        if (val) {
-          processScannedData(val);
-          e.target.value = '';
-        }
+    function resumeScanningNextItem() {
+      document.getElementById('qr-freeze-overlay').classList.add('hidden');
+      document.getElementById('qr-freeze-overlay').classList.remove('flex');
+      isProcessingScan = false;
+
+      if (html5QrScanner) {
+        html5QrScanner.resume();
       }
+
+      document.getElementById('qr-manual-input').value = '';
+      document.getElementById('qr-manual-input').focus();
     }
 
     function processScannedData(text) {
       let code = "", name = "", shade = "Standard", qtyToAdd = parseInt(document.getElementById('qr-inward-step').value) || 1;
 
-      // 1. Try parsing JSON format: {"code":"FG-DSK-900","name":"Desk","shade":"RAL 9005","qty":1}
       try {
         const parsed = JSON.parse(text);
         code = (parsed.code || parsed.sku || "").toString().trim().toUpperCase();
         name = (parsed.name || parsed.desc || "").toString().trim();
         shade = (parsed.shade || parsed.colour || "Standard").toString().trim();
-        if (parsed.qty && !isNaN(parsed.qty)) {
-          qtyToAdd = parseInt(parsed.qty);
-        }
+        if (parsed.qty && !isNaN(parsed.qty)) qtyToAdd = parseInt(parsed.qty);
       } catch (e) {
-        // 2. Fallback to comma/pipe separated text: SKU, Name, Shade, Qty
         const parts = text.split(/[,|;]/).map(p => p.trim());
         if (parts.length >= 1) code = parts[0].toUpperCase();
         if (parts.length >= 2) name = parts[1];
@@ -1033,21 +1064,19 @@
       }
 
       if (!code) {
-        showScanResult(false, `Unrecognized QR content: "${text.substring(0, 30)}..."`);
+        alert(`Unrecognized QR code text: "${text}"`);
+        resumeScanningNextItem();
         return;
       }
 
-      // Find in Finished Goods
       let fg = fgStock.find(f => f.code === code && f.shade.toLowerCase() === shade.toLowerCase());
+      let totalNow = qtyToAdd;
 
       if (fg) {
         fg.qty += qtyToAdd;
-        saveAll();
-        renderFG();
-        showScanResult(true, `Successfully in-warded +${qtyToAdd} units of ${fg.code} (${fg.name}). New Available Stock: ${fg.qty}`);
+        totalNow = fg.qty;
       } else {
-        // Automatically create and inward new SKU if it doesn't exist
-        const newSku = {
+        fgStock.unshift({
           id: Date.now().toString(),
           code: code,
           name: name || code,
@@ -1055,39 +1084,50 @@
           qty: qtyToAdd,
           lowLimit: 25,
           critLimit: 10
-        };
-        fgStock.unshift(newSku);
-        saveAll();
-        renderFG();
-        showScanResult(true, `New Product Registered & In-warded: ${code} - ${shade} (+${qtyToAdd} units). Current Stock: ${qtyToAdd}`);
+        });
+      }
+
+      saveAll();
+      renderFG();
+
+      // Show Single-Scan Lockout Overlay
+      document.getElementById('qr-scan-item-title').innerText = `${code} (${shade})`;
+      document.getElementById('qr-scan-item-detail').innerText = `+${qtyToAdd} Inwarded | Total Stock: ${totalNow} units`;
+      const overlay = document.getElementById('qr-freeze-overlay');
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+    }
+
+    function handleManualScannerInput(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = e.target.value.trim();
+        if (val && !isProcessingScan) {
+          isProcessingScan = true;
+          playScanBeep();
+          processScannedData(val);
+          e.target.value = '';
+        }
       }
     }
 
-    function showScanResult(isSuccess, msg) {
-      const box = document.getElementById('qr-last-scan-status');
-      box.classList.remove('hidden');
-      if (isSuccess) {
-        box.className = "p-3 rounded-xl border text-xs font-bold space-y-1 bg-emerald-50 text-emerald-900 border-emerald-300";
-        box.innerHTML = `
-          <div class="flex items-center gap-1.5 text-emerald-800">
-            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-            <span>Scan Successful! Stock Updated.</span>
-          </div>
-          <p class="font-normal text-[11px] text-emerald-950">${msg}</p>
-        `;
-      } else {
-        box.className = "p-3 rounded-xl border text-xs font-bold space-y-1 bg-rose-50 text-rose-900 border-rose-300";
-        box.innerHTML = `
-          <div class="flex items-center gap-1.5 text-rose-800">
-            <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            <span>Scan Warning</span>
-          </div>
-          <p class="font-normal text-[11px] text-rose-950">${msg}</p>
-        `;
-      }
+    function scanQrFromImageFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode.scanFile(file, true)
+        .then(decodedText => {
+          onQrScanSuccess(decodedText, null);
+        })
+        .catch(err => {
+          alert("Could not detect a clear QR code in this image. Please capture again.");
+        })
+        .finally(() => {
+          event.target.value = "";
+        });
     }
 
-    // Generate Scannable Carton Label Sticker
     function generateQRLabel(skuId) {
       const item = fgStock.find(f => f.id === skuId);
       if (!item) return;
@@ -1099,7 +1139,6 @@
       const qrContainer = document.getElementById('qr-code-display');
       qrContainer.innerHTML = '';
 
-      // Standard JSON Payload for the sticker
       const payload = JSON.stringify({
         code: item.code,
         name: item.name,
@@ -1498,11 +1537,11 @@
             dispatchRecords = val.dispatchRecords || [];
             optimizerItems = val.optimizerItems || optimizerItems;
 
-            localStorage.setItem('ff_sfg_v11', JSON.stringify(sfgStock));
-            localStorage.setItem('ff_fg_v11', JSON.stringify(fgStock));
-            localStorage.setItem('ff_packing_v11', JSON.stringify(packingSlips));
-            localStorage.setItem('ff_dispatch_v11', JSON.stringify(dispatchRecords));
-            localStorage.setItem('ff_optimizer_items_v11', JSON.stringify(optimizerItems));
+            localStorage.setItem('ff_sfg_master', JSON.stringify(sfgStock));
+            localStorage.setItem('ff_fg_master', JSON.stringify(fgStock));
+            localStorage.setItem('ff_packing_master', JSON.stringify(packingSlips));
+            localStorage.setItem('ff_dispatch_master', JSON.stringify(dispatchRecords));
+            localStorage.setItem('ff_optimizer_master', JSON.stringify(optimizerItems));
 
             renderAll();
             renderOptimizerCargoRows();
@@ -1544,7 +1583,7 @@
     function backupAllData() {
       const backupPayload = {
         app: "FURNIFORGE_ERP",
-        version: "11.0",
+        version: "12.0",
         exportDate: new Date().toISOString(),
         data: { sfgStock, fgStock, packingSlips, dispatchRecords, optimizerItems }
       };
@@ -1902,7 +1941,6 @@
       e.target.reset();
     }
 
-    // Multi-Item Packing Slip logic with edit safety
     function openCreatePackingModal() {
       editBackupOldItems = null;
       document.getElementById('mps-edit-mode-id').value = '';
