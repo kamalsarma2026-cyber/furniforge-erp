@@ -1,0 +1,2538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FURNIFORGE - Inventory, Multi-Item Packing, QR Scanning & Vehicle Load Planner</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS: Pure Client-Side Excel (.xlsx / .xls) Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Vector jsPDF & AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- QRCode.js (For Generating Label Stickers) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- HTML5-QRCode (For Live Camera Scanning on Phone/Tablet/Webcam) -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Firebase App & Realtime Database SDK (v9 Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    @media print {
+      body * { visibility: hidden !important; }
+      #printableModalContent, #printableModalContent * { visibility: visible !important; }
+      #printableModalContent { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
+
+  <!-- Header -->
+  <header class="bg-slate-900 text-white shadow-md border-b-4 border-amber-600">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <!-- Monogram Logo -->
+        <img id="appHeaderLogo" class="w-12 h-12 bg-white rounded p-1 shadow object-contain" alt="FURNIFORGE" />
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-black tracking-wider uppercase">FURNIFORGE</h1>
+            <button onclick="openModal('modal-cloud-sync')" id="cloudStatusBadge" class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-400">
+              <span id="cloudStatusDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span id="cloudStatusText">Local Storage</span>
+            </button>
+          </div>
+          <p class="text-xs text-amber-400 font-bold tracking-widest uppercase">FINELY CRAFTED FURNITURE</p>
+          <p class="text-[10px] text-slate-300">Ground Floor, Kendukona Chowk, Bamungaon, Puthimari, Kamrup, Assam 781380</p>
+        </div>
+      </div>
+
+      <!-- Navigation & Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center gap-3">
+        <nav class="flex flex-wrap gap-2 text-sm font-semibold">
+          <button onclick="switchTab('semi-finish')" id="tab-semi-finish" class="tab-btn px-3 py-2 rounded-lg bg-amber-600 text-white transition shadow">Semi-Finished</button>
+          <button onclick="switchTab('finished')" id="tab-finished" class="tab-btn px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 transition">Finished Goods</button>
+          <button onclick="switchTab('packing')" id="tab-packing" class="tab-btn px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 transition">Packing Slip</button>
+          <button onclick="switchTab('loading-optimizer')" id="tab-loading-optimizer" class="tab-btn px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 transition flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+            Vehicle Load Optimizer
+          </button>
+          <button onclick="switchTab('dispatch')" id="tab-dispatch" class="tab-btn px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 transition">Dispatch & Gate Pass</button>
+        </nav>
+
+        <div class="flex items-center gap-1.5 border-t sm:border-t-0 sm:border-l sm:pl-3 border-slate-700 pt-2 sm:pt-0">
+          <button onclick="openModal('modal-cloud-sync')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center gap-1 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+            Cloud Sync
+          </button>
+          <button onclick="backupAllData()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center gap-1 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Backup
+          </button>
+          <label class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center gap-1 cursor-pointer transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            Restore
+            <input type="file" id="restoreFileInput" accept=".json" onchange="restoreAllData(event)" class="hidden" />
+          </label>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl w-full mx-auto p-4 sm:p-6 flex-grow space-y-6">
+
+    <!-- 1. SEMI-FINISHED GOODS -->
+    <section id="sec-semi-finish" class="tab-content space-y-4">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Semi-Finished Goods (SFG) Stock</h2>
+          <p class="text-xs text-slate-500">Track WIP stages, powder shades, and filter products instantly.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="downloadSFGExcelTemplate()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300">Download Template</button>
+          <label class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow cursor-pointer flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            Upload Excel (.xlsx)
+            <input type="file" accept=".xlsx, .xls" onchange="handleExcelUpload(event, 'sfg')" class="hidden" />
+          </label>
+          <button onclick="exportSFGCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300">CSV Export</button>
+          <button onclick="openModal('modal-sfg')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow">+ Manual Add</button>
+        </div>
+      </div>
+
+      <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex items-center gap-2">
+        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <input type="text" id="search-sfg" oninput="renderSFG()" placeholder="Search semi-finished goods by code, description, shade, or stage..." class="w-full text-sm outline-none bg-transparent">
+        <button onclick="clearSearch('search-sfg', renderSFG)" class="text-xs text-slate-400 hover:text-slate-600 font-bold px-2">Clear</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-600 uppercase text-xs border-b">
+            <tr>
+              <th class="p-3">Item Code</th>
+              <th class="p-3">Description</th>
+              <th class="p-3">Powder Colour Shade</th>
+              <th class="p-3">Stage</th>
+              <th class="p-3 text-center">Quantity (Adjust)</th>
+              <th class="p-3 text-center">Alert Limits</th>
+              <th class="p-3 text-center">Dynamic Status</th>
+              <th class="p-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sfg-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2. FINISHED GOODS (WITH QR CODE INWARD SCANNING & LABEL GENERATION) -->
+    <section id="sec-finished" class="tab-content hidden space-y-4">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Finished Goods (FG) Stock</h2>
+          <p class="text-xs text-slate-500">Scan QR stickers directly using mobile cameras or barcode guns for instant stock entry.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <!-- QR Scanner Trigger Button -->
+          <button onclick="openQRScannerModal()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-black px-3.5 py-1.5 rounded-lg shadow flex items-center gap-1.5 transition">
+            <svg class="w-4 h-4 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+            📷 Scan QR to Inward
+          </button>
+          <button onclick="downloadFGExcelTemplate()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300">Download Template</button>
+          <label class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow cursor-pointer flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            Upload Excel (.xlsx)
+            <input type="file" accept=".xlsx, .xls" onchange="handleExcelUpload(event, 'fg')" class="hidden" />
+          </label>
+          <button onclick="exportFGCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300">CSV Export</button>
+          <button onclick="openModal('modal-fg')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow">+ Manual Add</button>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex items-center gap-2">
+        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        <input type="text" id="search-fg" oninput="renderFG()" placeholder="Search finished goods by SKU, product name, or powder shade..." class="w-full text-sm outline-none bg-transparent">
+        <button onclick="clearSearch('search-fg', renderFG)" class="text-xs text-slate-400 hover:text-slate-600 font-bold px-2">Clear</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-600 uppercase text-xs border-b">
+            <tr>
+              <th class="p-3">SKU / Code</th>
+              <th class="p-3">Product Name</th>
+              <th class="p-3">Powder Colour Shade</th>
+              <th class="p-3 text-center">Available Qty (Adjust)</th>
+              <th class="p-3 text-center">Alert Limits</th>
+              <th class="p-3 text-center">Dynamic Status</th>
+              <th class="p-3 text-center">QR Label & Actions</th>
+            </tr>
+          </thead>
+          <tbody id="fg-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. MULTI-ITEM PACKING SLIP PREPARATION -->
+    <section id="sec-packing" class="tab-content hidden space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Multi-Item Packing Slip Preparation</h2>
+          <p class="text-xs text-slate-500">Pack multiple distinct products into one slip, edit slips after generation, and print.</p>
+        </div>
+        <button onclick="openCreatePackingModal()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow">+ Prepare New Multi-Item Slip</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-600 uppercase text-xs border-b">
+            <tr>
+              <th class="p-3">Slip ID</th>
+              <th class="p-3">Customer / Consignee</th>
+              <th class="p-3">Customer PO</th>
+              <th class="p-3">Total Items</th>
+              <th class="p-3 text-right">Total Units</th>
+              <th class="p-3 text-center">Total Cartons</th>
+              <th class="p-3 text-center">Downloads & Actions</th>
+            </tr>
+          </thead>
+          <tbody id="packing-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. VEHICLE LOAD & SPACE OPTIMIZER TAB -->
+    <section id="sec-loading-optimizer" class="tab-content hidden space-y-5">
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-900 flex items-center gap-2">
+            <span class="p-1.5 rounded-lg bg-amber-500 text-white">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+            </span>
+            Vehicle Loading & Space Optimizer
+          </h2>
+          <p class="text-xs text-slate-500 mt-1">Simulate dimensional carton packing into vehicle containers, maximize floor space, calculate CBM, and prevent vehicle overloading.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="importPackingSlipToOptimizer()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            Import from Packing Slip
+          </button>
+          <button onclick="calculateVehicleOptimization()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-black px-4 py-2 rounded-lg shadow">
+            Recalculate Space & Stacking
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+          <div class="flex justify-between items-center border-b pb-2">
+            <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider">1. Vehicle Profile</h3>
+            <span class="text-[10px] bg-slate-100 font-mono px-2 py-0.5 rounded text-slate-600">Preset or Custom</span>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Select Transport Vehicle Body</label>
+            <select id="vlo-preset" onchange="applyVehiclePreset(this.value)" class="w-full border rounded-lg p-2 text-xs font-bold bg-white outline-none">
+              <option value="bolero">Bolero Maxi Truck / Pickup (8.2ft × 5.2ft × 5.5ft - 1.5T)</option>
+              <option value="ace">Tata Ace / Chota Hathi (7.2ft × 4.9ft × 4.8ft - 750kg)</option>
+              <option value="14ft" selected>14ft Closed Container (14.0ft × 6.2ft × 6.5ft - 4.0T)</option>
+              <option value="17ft">17ft Truck Container (17.0ft × 6.8ft × 7.0ft - 5.5T)</option>
+              <option value="19ft">19ft Multi-Axle Container (19.0ft × 7.2ft × 7.5ft - 7.5T)</option>
+              <option value="20ft">20ft ISO Heavy Container (19.4ft × 7.7ft × 7.8ft - 21.0T)</option>
+              <option value="32ft">32ft MXL High Cube Container (31.8ft × 7.8ft × 8.5ft - 15.0T)</option>
+              <option value="custom">Custom Internal Dimensions...</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Length (cm)</label>
+              <input type="number" id="vlo-veh-length" value="426" oninput="calculateVehicleOptimization()" class="w-full border rounded p-1.5 text-xs font-mono font-bold">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Width (cm)</label>
+              <input type="number" id="vlo-veh-width" value="188" oninput="calculateVehicleOptimization()" class="w-full border rounded p-1.5 text-xs font-mono font-bold">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Height (cm)</label>
+              <input type="number" id="vlo-veh-height" value="198" oninput="calculateVehicleOptimization()" class="w-full border rounded p-1.5 text-xs font-mono font-bold">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1 border-t">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Max Payload (kg)</label>
+              <input type="number" id="vlo-veh-maxweight" value="4000" oninput="calculateVehicleOptimization()" class="w-full border rounded p-1.5 text-xs font-mono font-bold text-indigo-700">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Usable Volume</label>
+              <input type="text" id="vlo-veh-cbm" readonly value="15.86 CBM" class="w-full border rounded p-1.5 text-xs font-mono font-bold bg-slate-50 text-slate-600">
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-2 space-y-4 flex flex-col justify-between">
+          <div class="flex justify-between items-center border-b pb-2">
+            <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider">2. Vehicle Space & Payload Utilization</h3>
+            <span id="vlo-status-pill" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">Space Healthy</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 py-2">
+            <div class="space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div class="flex justify-between items-end">
+                <span class="text-xs font-bold text-slate-600 uppercase">Volume Space Fill</span>
+                <span id="vlo-vol-percent-text" class="text-xl font-black text-slate-900">0.0%</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-3.5 overflow-hidden">
+                <div id="vlo-vol-progressbar" class="bg-amber-500 h-3.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <div class="flex justify-between text-[11px] text-slate-500 pt-1 font-mono">
+                <span>Cargo: <b id="vlo-cargo-cbm">0.00</b> CBM</span>
+                <span>Capacity: <b id="vlo-capacity-cbm">0.00</b> CBM</span>
+              </div>
+            </div>
+            <div class="space-y-1.5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div class="flex justify-between items-end">
+                <span class="text-xs font-bold text-slate-600 uppercase">Payload Weight Fill</span>
+                <span id="vlo-wt-percent-text" class="text-xl font-black text-slate-900">0.0%</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-3.5 overflow-hidden">
+                <div id="vlo-wt-progressbar" class="bg-indigo-600 h-3.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <div class="flex justify-between text-[11px] text-slate-500 pt-1 font-mono">
+                <span>Total Wt: <b id="vlo-total-weight">0</b> kg</span>
+                <span>Max: <b id="vlo-max-weight">4000</b> kg</span>
+              </div>
+            </div>
+          </div>
+          <div id="vlo-recommendation-box" class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-start gap-2">
+            <svg class="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div id="vlo-recommendation-text">Configure carton dimensions below to view optimal loading arrangement, layer stack capacity, and vehicle weight balance.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-8 space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b pb-3">
+            <div>
+              <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider">3. Products & Carton Dimensions to Load</h3>
+              <p class="text-[11px] text-slate-500">Specify carton Length, Width, Height (cm) and unit weights for each furniture product.</p>
+            </div>
+            <button onclick="addOptimizerCargoRow()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded shadow">+ Add Custom Carton</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border">
+              <thead class="bg-slate-50 text-slate-700 uppercase font-semibold border-b">
+                <tr>
+                  <th class="p-2.5">Item Code / Product Name</th>
+                  <th class="p-2.5 text-center">Cartons</th>
+                  <th class="p-2.5 text-center">L × W × H (cm)</th>
+                  <th class="p-2.5 text-center">Max Tier</th>
+                  <th class="p-2.5 text-right">Unit Wt (kg)</th>
+                  <th class="p-2.5 text-right">Vol (CBM)</th>
+                  <th class="p-2.5 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="vlo-cargo-tbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 lg:col-span-4 space-y-4 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center border-b pb-2 mb-3">
+              <h3 class="text-sm font-black text-slate-800 uppercase tracking-wider">4. Loading Stacking Guide</h3>
+              <span class="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Cross-Section</span>
+            </div>
+            <p class="text-xs text-slate-500 mb-3">Estimated layer tier stacking inside truck height profile:</p>
+            <div class="border-2 border-dashed border-slate-300 rounded-lg p-3 bg-slate-900 text-white space-y-3">
+              <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>Truck Bed: <b id="viz-bed-dim">426 × 188 cm</b></span>
+                <span>Max Ceiling: <b id="viz-ceiling-dim">198 cm</b></span>
+              </div>
+              <div id="vlo-stack-graphic" class="h-44 w-full bg-slate-800 rounded border border-slate-700 flex flex-col-reverse p-1.5 gap-1 overflow-hidden relative justify-start"></div>
+              <div class="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-300 border-t border-slate-800 pt-2">
+                <div>Floor Area Used: <b id="viz-floor-util" class="text-amber-400">0%</b></div>
+                <div>Height Used: <b id="viz-height-util" class="text-emerald-400">0 cm</b></div>
+              </div>
+            </div>
+          </div>
+          <div class="pt-3 border-t flex flex-col gap-2">
+            <button onclick="printLoadingPlan()" class="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 rounded-lg shadow flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+              Print / Save Loading Manifest
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. VEHICLE DISPATCH & GATE PASS -->
+    <section id="sec-dispatch" class="tab-content hidden space-y-4">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
+        <div>
+          <h2 class="text-xl font-bold text-slate-900">Vehicle Dispatch & Gate Pass Register</h2>
+          <p class="text-xs text-slate-500">Outward gate pass records with vehicle registration, driver details, and destination.</p>
+        </div>
+        <button onclick="openModal('modal-dispatch')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow">+ Record Vehicle Gate-Out</button>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-600 uppercase text-xs border-b">
+            <tr>
+              <th class="p-3">Gate Pass #</th>
+              <th class="p-3">Date & Time</th>
+              <th class="p-3">Vehicle Number</th>
+              <th class="p-3">Transporter</th>
+              <th class="p-3">Driver Name & Contact</th>
+              <th class="p-3">Linked Packing Slip</th>
+              <th class="p-3">Destination</th>
+              <th class="p-3 text-center">Downloads & Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dispatch-table-body" class="divide-y divide-slate-100"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODALS -->
+
+  <!-- Modal: Live QR Code Inward Scanner -->
+  <div id="modal-qr-scanner" class="fixed inset-0 bg-slate-900/70 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div class="flex items-center gap-2">
+          <span class="p-2 bg-purple-100 text-purple-700 rounded-lg">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+          </span>
+          <div>
+            <h3 class="text-base font-black text-slate-900">QR Stock Inward Scanner</h3>
+            <p class="text-[11px] text-slate-500">Camera scanner or Handheld Barcode gun</p>
+          </div>
+        </div>
+        <button onclick="closeQRScannerModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+      </div>
+
+      <!-- Live Video Viewport Container -->
+      <div id="qr-reader-container" class="overflow-hidden rounded-xl border-2 border-dashed border-purple-300 bg-slate-950 flex flex-col items-center justify-center min-h-[260px] text-white">
+        <div id="qr-reader" class="w-full"></div>
+      </div>
+
+      <!-- Quantity Step setting -->
+      <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border text-xs">
+        <span class="font-bold text-slate-700">Inward Qty per Scan:</span>
+        <div class="flex items-center gap-1.5">
+          <input type="number" id="qr-inward-step" value="1" min="1" class="w-16 border rounded p-1 text-center font-bold text-sm bg-white">
+          <span class="text-slate-500 font-bold">Units</span>
+        </div>
+      </div>
+
+      <!-- Manual barcode gun input backup -->
+      <div class="space-y-1">
+        <label class="block text-[11px] font-bold text-slate-600">Barcode Gun / Keyboard Input (Auto-reads):</label>
+        <input type="text" id="qr-manual-input" onkeydown="handleManualScannerInput(event)" placeholder="Paste or scan with USB scanner gun here..." class="w-full border rounded-lg p-2 text-xs font-mono bg-white outline-none focus:border-purple-500">
+      </div>
+
+      <!-- Recent Scan Confirmation Alert Box -->
+      <div id="qr-last-scan-status" class="hidden p-3 rounded-xl border text-xs font-medium space-y-1 transition-all"></div>
+
+      <div class="flex justify-end pt-1">
+        <button type="button" onclick="closeQRScannerModal()" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold">Close Scanner</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Generate Printable Carton QR Label Sticker -->
+  <div id="modal-qr-label" class="fixed inset-0 bg-slate-900/70 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b pb-2 no-print">
+        <h3 class="text-base font-black text-slate-800">Finished Product QR Label</h3>
+        <button onclick="closeModal('modal-qr-label')" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+      </div>
+
+      <!-- Printable Sticker Box -->
+      <div id="printableQrSticker" class="border-2 border-slate-900 p-4 rounded-xl bg-white space-y-3 text-center shadow-sm">
+        <div class="flex items-center justify-between border-b-2 border-slate-900 pb-2">
+          <div class="text-left">
+            <h4 class="text-base font-black tracking-wider text-slate-950 uppercase">FURNIFORGE</h4>
+            <p class="text-[9px] font-bold text-amber-700 tracking-wider">FINELY CRAFTED FURNITURE</p>
+          </div>
+          <span class="text-[9px] font-mono border px-1.5 py-0.5 rounded font-black bg-slate-100">PASS QC</span>
+        </div>
+
+        <div id="qr-code-display" class="flex justify-center py-2"></div>
+
+        <div class="text-left space-y-1 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+          <p><span class="font-bold text-slate-600">SKU:</span> <b id="lbl-sku" class="text-slate-950 font-mono"></b></p>
+          <p><span class="font-bold text-slate-600">Item:</span> <b id="lbl-name" class="text-slate-950"></b></p>
+          <p><span class="font-bold text-slate-600">Shade:</span> <b id="lbl-shade" class="text-amber-800"></b></p>
+        </div>
+        <p class="text-[8px] text-slate-400 tracking-wider uppercase font-mono">Scan via FurniForge ERP to Inward</p>
+      </div>
+
+      <div class="flex gap-2 no-print">
+        <button onclick="printQrSticker()" class="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-2 rounded-lg flex items-center justify-center gap-1.5 shadow">
+          <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+          Print Label Sticker
+        </button>
+        <button onclick="closeModal('modal-qr-label')" class="px-4 py-2 border rounded-lg text-xs font-bold text-slate-600">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Import Slip to Load Optimizer -->
+  <div id="modal-import-slip" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="text-base font-black text-slate-800">Import Slip to Load Optimizer</h3>
+        <button onclick="closeModal('modal-import-slip')" class="text-slate-400 hover:text-slate-600 font-bold">&times;</button>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1">Choose a Generated Packing Slip</label>
+        <select id="vlo-import-slip-select" class="w-full border rounded-lg p-2.5 text-xs bg-white"></select>
+      </div>
+      <p class="text-xs text-slate-500">This will populate the products and carton counts directly into the loading simulator.</p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModal('modal-import-slip')" class="px-3 py-1.5 border rounded-lg text-xs font-bold">Cancel</button>
+        <button type="button" onclick="confirmImportPackingSlip()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow">Load Cartons</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Cloud Sync -->
+  <div id="modal-cloud-sync" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div class="flex items-center gap-2">
+          <span class="p-2 rounded bg-indigo-50 text-indigo-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+          </span>
+          <div>
+            <h3 class="text-base font-black text-slate-900">Team Cloud Sync (Google Firebase)</h3>
+            <p class="text-xs text-slate-500">Live multi-device data updates for your entire team.</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-cloud-sync')" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-600">
+        <p class="bg-amber-50 border border-amber-200 text-amber-900 p-2.5 rounded-lg leading-relaxed">
+          <b>How to connect (100% Free):</b> Go to <a href="https://console.firebase.google.com" target="_blank" class="text-indigo-600 underline font-bold">firebase.google.com</a> &rarr; Create Project &rarr; Build &rarr; <b>Realtime Database</b> &rarr; Create Database (Test Mode).
+        </p>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Firebase Database URL</label>
+          <input type="text" id="fb-databaseURL" placeholder="https://your-project-default-rtdb.firebaseio.com" class="w-full border rounded-lg p-2 text-xs font-mono">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Firebase API Key</label>
+          <input type="text" id="fb-apiKey" placeholder="AIzaSy..." class="w-full border rounded-lg p-2 text-xs font-mono">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Project ID</label>
+          <input type="text" id="fb-projectId" placeholder="furniforge-erp" class="w-full border rounded-lg p-2 text-xs font-mono">
+        </div>
+
+        <div class="pt-2 flex justify-between items-center border-t">
+          <button type="button" onclick="disconnectCloudSync()" class="text-rose-600 hover:text-rose-800 font-bold text-xs">Disconnect Cloud</button>
+          <div class="flex gap-2">
+            <button type="button" onclick="closeModal('modal-cloud-sync')" class="px-3 py-1.5 border rounded-lg text-xs font-bold text-slate-600">Cancel</button>
+            <button type="button" onclick="connectCloudSync()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow">Save & Connect Team</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add SFG -->
+  <div id="modal-sfg" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+      <h3 class="text-lg font-bold text-slate-800">Add Semi-Finished Item</h3>
+      <form onsubmit="saveSFG(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Item Code</label>
+          <input type="text" id="sfg-code" required placeholder="e.g. SFG-FRM-01" class="w-full border rounded-lg p-2 text-sm uppercase">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Description</label>
+          <input type="text" id="sfg-desc" required placeholder="e.g. Heavy Tubular Desk Frame" class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Powder Colour Shade</label>
+          <input type="text" id="sfg-shade" required placeholder="e.g. RAL 9005 Matte Black" class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Current Work Stage</label>
+          <select id="sfg-stage" class="w-full border rounded-lg p-2 text-sm">
+            <option>Laser Cutting & Shearing</option>
+            <option>CNC Bending & Punching</option>
+            <option>MIG/TIG Welding Stage</option>
+            <option>Shot Blasting & Pickling</option>
+            <option>Powder Coating Line</option>
+            <option>Sub-Assembly / Pre-Fit</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Quantity</label>
+            <input type="number" id="sfg-qty" min="1" required class="w-full border rounded-lg p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-amber-700 mb-1">Low Limit</label>
+            <input type="number" id="sfg-low-limit" min="1" value="25" required class="w-full border rounded-lg p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-red-700 mb-1">Critical Limit</label>
+            <input type="number" id="sfg-crit-limit" min="0" value="10" required class="w-full border rounded-lg p-2 text-sm">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-sfg')" class="px-4 py-2 border rounded-lg text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold">Save Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add FG -->
+  <div id="modal-fg" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+      <h3 class="text-lg font-bold text-slate-800">Add Finished Good SKU</h3>
+      <form onsubmit="saveFG(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">SKU / Product Code</label>
+          <input type="text" id="fg-code" required placeholder="e.g. FG-DSK-900" class="w-full border rounded-lg p-2 text-sm uppercase">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Product Description</label>
+          <input type="text" id="fg-name" required placeholder="e.g. Metal Executive Workstation" class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Powder Colour Shade</label>
+          <input type="text" id="fg-shade" required placeholder="e.g. RAL 7016 Anthracite Grey" class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Quantity</label>
+            <input type="number" id="fg-qty" min="1" required class="w-full border rounded-lg p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-amber-700 mb-1">Low Limit</label>
+            <input type="number" id="fg-low-limit" min="1" value="25" required class="w-full border rounded-lg p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-red-700 mb-1">Critical Limit</label>
+            <input type="number" id="fg-crit-limit" min="0" value="10" required class="w-full border rounded-lg p-2 text-sm">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-fg')" class="px-4 py-2 border rounded-lg text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold">Save FG Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Edit Item Alert Limits -->
+  <div id="modal-edit-limits" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+      <div>
+        <h3 class="text-lg font-bold text-slate-800">Configure Alert Limits</h3>
+        <p class="text-xs text-slate-500" id="editLimitsSubtitle">Set threshold numbers to trigger alert badges</p>
+      </div>
+      <form onsubmit="handleSaveLimits(event)" class="space-y-3">
+        <input type="hidden" id="editLimitsType">
+        <input type="hidden" id="editLimitsId">
+        <div>
+          <label class="block text-xs font-semibold text-amber-700 mb-1">Low Stock Limit (Warning)</label>
+          <input type="number" id="editLimitsLow" min="1" required class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-red-700 mb-1">Critical Stock Limit (Urgent)</label>
+          <input type="number" id="editLimitsCrit" min="0" required class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-edit-limits')" class="px-4 py-2 border rounded-lg text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold">Save Limits</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Direct Quantity Editor -->
+  <div id="modal-edit-qty" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+      <h3 class="text-lg font-bold text-slate-800" id="editQtyTitle">Adjust Stock Quantity</h3>
+      <p class="text-xs text-slate-500" id="editQtySubtitle"></p>
+      <form onsubmit="handleDirectQtySubmit(event)" class="space-y-4">
+        <input type="hidden" id="editQtyType">
+        <input type="hidden" id="editQtyId">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Set New Quantity</label>
+          <input type="number" id="editQtyVal" min="0" required class="w-full border rounded-lg p-3 text-lg font-black text-center text-slate-800">
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-edit-qty')" class="px-4 py-2 border rounded-lg text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold">Update Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Prepare / Edit Multi-Item Packing Slip -->
+  <div id="modal-packing-multi" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h3 class="text-lg font-black text-slate-900" id="mpsModalTitle">Prepare Multi-Item Packing Slip</h3>
+          <p class="text-xs text-slate-500" id="mpsModalSubtitle">Combine multiple finished items for the same client and dispatch run.</p>
+        </div>
+        <button onclick="cancelPackingSlipModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">&times;</button>
+      </div>
+
+      <form onsubmit="saveMultiItemPackingSlip(event)" class="space-y-4">
+        <input type="hidden" id="mps-edit-mode-id" value="">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Customer / Consignee Name</label>
+            <input type="text" id="mps-customer" required placeholder="e.g. Apex Industrial Infrastructure" class="w-full border rounded p-2 text-xs">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Customer PO Number</label>
+            <input type="text" id="mps-po" required placeholder="e.g. PO-88421" class="w-full border rounded p-2 text-xs">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Estimated Dispatch Date</label>
+            <input type="date" id="mps-date" required class="w-full border rounded p-2 text-xs">
+          </div>
+        </div>
+
+        <div class="border rounded-lg p-3 space-y-3">
+          <div class="flex justify-between items-center">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700">Add Finished Goods to Slip</h4>
+            <span class="text-xs text-amber-700 font-semibold" id="cartonCounterSummary">Total Cartons: 0 | Total Qty: 0</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-2 bg-amber-50/50 p-2.5 rounded border border-amber-200 items-end">
+            <div class="md:col-span-6">
+              <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Select Finished Good</label>
+              <select id="mps-item-select" class="w-full border rounded p-1.5 text-xs bg-white"></select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Qty to Pack</label>
+              <input type="number" id="mps-item-qty" min="1" placeholder="Qty" class="w-full border rounded p-1.5 text-xs bg-white">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Boxes / Cartons</label>
+              <input type="number" id="mps-item-boxes" min="1" placeholder="Cartons" class="w-full border rounded p-1.5 text-xs bg-white">
+            </div>
+            <div class="md:col-span-2">
+              <button type="button" onclick="addPackingItemRow()" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs p-1.5 rounded shadow">+ Add Product</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left border">
+              <thead class="bg-slate-100 border-b font-semibold text-slate-700">
+                <tr>
+                  <th class="p-2">SKU Code</th>
+                  <th class="p-2">Description</th>
+                  <th class="p-2">Colour Shade</th>
+                  <th class="p-2 text-right">Qty</th>
+                  <th class="p-2 text-center">Cartons</th>
+                  <th class="p-2 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="mps-items-table-body" class="divide-y divide-slate-100">
+                <tr><td colspan="6" class="p-4 text-center text-slate-400">No items added yet. Choose a product above and click "+ Add Product".</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Gross Weight</label>
+            <input type="text" id="mps-gross" placeholder="e.g. 840 Kg" class="w-full border rounded p-2 text-xs">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Net Weight</label>
+            <input type="text" id="mps-net" placeholder="e.g. 780 Kg" class="w-full border rounded p-2 text-xs">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="cancelPackingSlipModal()" class="px-4 py-2 border rounded-lg text-xs font-bold">Cancel</button>
+          <button type="submit" id="mpsSubmitBtn" class="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow">Generate Slip & Download PDF</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Record Vehicle Dispatch -->
+  <div id="modal-dispatch" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+      <h3 class="text-lg font-bold text-slate-800">Record Vehicle Gate-Out</h3>
+      <form onsubmit="saveDispatch(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Vehicle Registration #</label>
+          <input type="text" id="disp-veh" required placeholder="e.g. AS 01 PQ 4059" class="w-full border rounded-lg p-2 text-sm uppercase">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Transporter / Carrier Name</label>
+          <input type="text" id="disp-trans" required placeholder="e.g. Reliable Logistics Ltd." class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Driver Name</label>
+            <input type="text" id="disp-driver" required placeholder="e.g. Ramesh Singh" class="w-full border rounded-lg p-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Driver Phone #</label>
+            <input type="text" id="disp-phone" required placeholder="e.g. 9876543210" class="w-full border rounded-lg p-2 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Link Packing Slip</label>
+          <select id="disp-slip" class="w-full border rounded-lg p-2 text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Destination City / Site</label>
+          <input type="text" id="disp-dest" required placeholder="e.g. Guwahati Distribution Hub" class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Container / Truck Seal # (Optional)</label>
+          <input type="text" id="disp-seal" placeholder="e.g. SL-90412" class="w-full border rounded-lg p-2 text-sm">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-dispatch')" class="px-4 py-2 border rounded-lg text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold">Authorize & Gate Pass</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Document Preview Modal -->
+  <div id="modal-preview" class="fixed inset-0 bg-slate-900/70 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center border-b pb-3 no-print">
+        <h3 id="previewTitle" class="text-lg font-bold text-slate-800">Document Preview</h3>
+        <div class="flex gap-2">
+          <button id="btnPdfDirect" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 shadow">Download Vector PDF</button>
+          <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded">Print Document</button>
+          <button onclick="closeModal('modal-preview')" class="border hover:bg-slate-100 text-slate-700 text-xs font-bold px-3 py-1.5 rounded">Close</button>
+        </div>
+      </div>
+      <div id="printableModalContent" class="bg-white p-4 border rounded"></div>
+    </div>
+  </div>
+
+  <script>
+    // EXACT MONOGRAM LOGO DATA URL[cite: 3]
+    function generateFurniForgeLogoDataUrl() {
+      const c = document.createElement('canvas');
+      c.width = 400;
+      c.height = 400;
+      const ctx = c.getContext('2d');
+
+      ctx.clearRect(0, 0, 400, 400);
+      ctx.fillStyle = '#221F20';
+
+      ctx.fillRect(25, 17, 36, 366);
+      ctx.fillRect(339, 17, 36, 366);
+
+      ctx.beginPath();
+      ctx.moveTo(61, 17);
+      ctx.lineTo(304, 17);
+      ctx.lineTo(304, 53);
+      ctx.lineTo(105, 53);
+      ctx.bezierCurveTo(75, 53, 61, 67, 61, 97);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(339, 383);
+      ctx.lineTo(96, 383);
+      ctx.lineTo(96, 347);
+      ctx.lineTo(295, 347);
+      ctx.bezierCurveTo(325, 347, 339, 333, 339, 303);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillRect(61, 178, 92, 36);
+      ctx.fillRect(247, 178, 92, 36);
+
+      ctx.fillRect(147, 153, 35, 86);
+      ctx.fillRect(218, 153, 35, 86);
+
+      return c.toDataURL('image/png');
+    }
+
+    const FURNIFORGE_LOGO_PNG = generateFurniForgeLogoDataUrl();
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById('appHeaderLogo').src = FURNIFORGE_LOGO_PNG;
+      initFirebaseFromStorage();
+      renderOptimizerCargoRows();
+      calculateVehicleOptimization();
+    });
+
+    // Master State Management
+    let sfgStock = JSON.parse(localStorage.getItem('ff_sfg_v11')) || [
+      { id: '1', code: 'SFG-FRM-01', desc: 'Heavy Tubular Frame Weldment', shade: 'RAL 9005 Matte Black', stage: 'MIG/TIG Welding Stage', qty: 45, lowLimit: 25, critLimit: 10 },
+      { id: '2', code: 'SFG-PLT-04', desc: 'CNC Cut Base Plates 12mm', shade: 'Raw Primer Gray', stage: 'Shot Blasting & Pickling', qty: 12, lowLimit: 25, critLimit: 10 },
+      { id: '3', code: 'SFG-LEG-09', desc: 'Tapered Heavy Steel Legs', shade: 'RAL 7016 Anthracite', stage: 'Powder Coating Line', qty: 8, lowLimit: 20, critLimit: 10 }
+    ];
+
+    let fgStock = JSON.parse(localStorage.getItem('ff_fg_v11')) || [
+      { id: '1', code: 'FG-DSK-900', name: 'Forged Executive Metal Desk', shade: 'RAL 9005 Jet Black', qty: 15, lowLimit: 25, critLimit: 10 },
+      { id: '2', code: 'FG-CHR-402', name: 'Industrial Ergonomic Steel Swivel Chair', shade: 'RAL 7016 Anthracite', qty: 28, lowLimit: 25, critLimit: 10 },
+      { id: '3', code: 'FG-RMT-100', name: 'Heavy Duty Modular Assembly Rack 4-Tier', shade: 'RAL 5010 Gentian Blue', qty: 60, lowLimit: 30, critLimit: 15 }
+    ];
+
+    let packingSlips = JSON.parse(localStorage.getItem('ff_packing_v11')) || [
+      {
+        id: 'PS-FF-1001',
+        customer: 'Apex Infrastructure & Interiors Pvt Ltd',
+        po: 'PO-88210',
+        date: '2026-10-06',
+        gross: '740 Kg',
+        net: '690 Kg',
+        totalBoxes: 9,
+        items: [
+          { code: 'FG-DSK-900', name: 'Forged Executive Metal Desk', shade: 'RAL 9005 Jet Black', qty: 5, boxes: 5 },
+          { code: 'FG-CHR-402', name: 'Industrial Ergonomic Steel Swivel Chair', shade: 'RAL 7016 Anthracite', qty: 4, boxes: 4 }
+        ]
+      }
+    ];
+
+    let dispatchRecords = JSON.parse(localStorage.getItem('ff_dispatch_v11')) || [
+      {
+        id: 'GP-FF-901',
+        date: '2026-10-06 09:30 AM',
+        vehicle: 'AS 01 PQ 4059',
+        transporter: 'Apex Fleet Logistics',
+        driver: 'Ramesh Singh',
+        phone: '9822019920',
+        slipId: 'PS-FF-1001',
+        dest: 'Guwahati Distribution Hub',
+        seal: 'SEAL-8890'
+      }
+    ];
+
+    let optimizerItems = JSON.parse(localStorage.getItem('ff_optimizer_items_v11')) || [
+      { id: 'c1', name: 'FG-DSK-900 (Metal Desk Flatpack)', boxes: 10, length: 150, width: 80, height: 25, weight: 45, maxTier: 4 },
+      { id: 'c2', name: 'FG-CHR-402 (Steel Swivel Chair Box)', boxes: 20, length: 65, width: 65, height: 60, weight: 18, maxTier: 3 },
+      { id: 'c3', name: 'FG-RMT-100 (Modular Rack Bundles)', boxes: 12, length: 200, width: 50, height: 20, weight: 35, maxTier: 5 }
+    ];
+
+    let currentDraftPackingItems = [];
+    let editBackupOldItems = null;
+
+    // Firebase state
+    let fbDatabase = null;
+    let isCloudConnected = false;
+    let isSyncingFromCloud = false;
+
+    function saveAll() {
+      localStorage.setItem('ff_sfg_v11', JSON.stringify(sfgStock));
+      localStorage.setItem('ff_fg_v11', JSON.stringify(fgStock));
+      localStorage.setItem('ff_packing_v11', JSON.stringify(packingSlips));
+      localStorage.setItem('ff_dispatch_v11', JSON.stringify(dispatchRecords));
+      localStorage.setItem('ff_optimizer_items_v11', JSON.stringify(optimizerItems));
+      pushLocalToCloud();
+    }
+
+    // ========================================================
+    // QR CODE SCANNING & AUTOMATIC FINISHED GOOD INWARD
+    // ========================================================
+    let html5QrScanner = null;
+
+    function openQRScannerModal() {
+      document.getElementById('qr-last-scan-status').classList.add('hidden');
+      document.getElementById('qr-manual-input').value = '';
+      openModal('modal-qr-scanner');
+
+      // Start HTML5 Live Camera
+      if (!html5QrScanner) {
+        html5QrScanner = new Html5Qrcode("qr-reader");
+      }
+
+      html5QrScanner.start(
+        { facingMode: "environment" }, // Prefer rear camera on mobile
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        onQrScanSuccess,
+        onQrScanFailure
+      ).catch(err => {
+        console.warn("Camera could not be accessed directly:", err);
+        document.getElementById('qr-reader-container').innerHTML = `
+          <div class="p-6 text-center text-xs space-y-2 text-slate-300">
+            <svg class="w-8 h-8 mx-auto text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <p><b>Camera permission not granted or no webcam available.</b></p>
+            <p class="text-slate-400">You can still scan cartons instantly using your handheld USB scanner gun or pasting code into the box below!</p>
+          </div>
+        `;
+      });
+
+      setTimeout(() => {
+        document.getElementById('qr-manual-input').focus();
+      }, 500);
+    }
+
+    function closeQRScannerModal() {
+      if (html5QrScanner && html5QrScanner.isScanning) {
+        html5QrScanner.stop().catch(err => console.error(err));
+      }
+      closeModal('modal-qr-scanner');
+    }
+
+    function onQrScanFailure(error) {
+      // Quietly ignore failed frame reads
+    }
+
+    function onQrScanSuccess(decodedText, decodedResult) {
+      processScannedData(decodedText);
+    }
+
+    function handleManualScannerInput(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = e.target.value.trim();
+        if (val) {
+          processScannedData(val);
+          e.target.value = '';
+        }
+      }
+    }
+
+    function processScannedData(text) {
+      let code = "", name = "", shade = "Standard", qtyToAdd = parseInt(document.getElementById('qr-inward-step').value) || 1;
+
+      // 1. Try parsing JSON format: {"code":"FG-DSK-900","name":"Desk","shade":"RAL 9005","qty":1}
+      try {
+        const parsed = JSON.parse(text);
+        code = (parsed.code || parsed.sku || "").toString().trim().toUpperCase();
+        name = (parsed.name || parsed.desc || "").toString().trim();
+        shade = (parsed.shade || parsed.colour || "Standard").toString().trim();
+        if (parsed.qty && !isNaN(parsed.qty)) {
+          qtyToAdd = parseInt(parsed.qty);
+        }
+      } catch (e) {
+        // 2. Fallback to comma/pipe separated text: SKU, Name, Shade, Qty
+        const parts = text.split(/[,|;]/).map(p => p.trim());
+        if (parts.length >= 1) code = parts[0].toUpperCase();
+        if (parts.length >= 2) name = parts[1];
+        if (parts.length >= 3) shade = parts[2];
+        if (parts.length >= 4 && !isNaN(parts[3])) qtyToAdd = parseInt(parts[3]);
+      }
+
+      if (!code) {
+        showScanResult(false, `Unrecognized QR content: "${text.substring(0, 30)}..."`);
+        return;
+      }
+
+      // Find in Finished Goods
+      let fg = fgStock.find(f => f.code === code && f.shade.toLowerCase() === shade.toLowerCase());
+
+      if (fg) {
+        fg.qty += qtyToAdd;
+        saveAll();
+        renderFG();
+        showScanResult(true, `Successfully in-warded +${qtyToAdd} units of ${fg.code} (${fg.name}). New Available Stock: ${fg.qty}`);
+      } else {
+        // Automatically create and inward new SKU if it doesn't exist
+        const newSku = {
+          id: Date.now().toString(),
+          code: code,
+          name: name || code,
+          shade: shade,
+          qty: qtyToAdd,
+          lowLimit: 25,
+          critLimit: 10
+        };
+        fgStock.unshift(newSku);
+        saveAll();
+        renderFG();
+        showScanResult(true, `New Product Registered & In-warded: ${code} - ${shade} (+${qtyToAdd} units). Current Stock: ${qtyToAdd}`);
+      }
+    }
+
+    function showScanResult(isSuccess, msg) {
+      const box = document.getElementById('qr-last-scan-status');
+      box.classList.remove('hidden');
+      if (isSuccess) {
+        box.className = "p-3 rounded-xl border text-xs font-bold space-y-1 bg-emerald-50 text-emerald-900 border-emerald-300";
+        box.innerHTML = `
+          <div class="flex items-center gap-1.5 text-emerald-800">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <span>Scan Successful! Stock Updated.</span>
+          </div>
+          <p class="font-normal text-[11px] text-emerald-950">${msg}</p>
+        `;
+      } else {
+        box.className = "p-3 rounded-xl border text-xs font-bold space-y-1 bg-rose-50 text-rose-900 border-rose-300";
+        box.innerHTML = `
+          <div class="flex items-center gap-1.5 text-rose-800">
+            <svg class="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <span>Scan Warning</span>
+          </div>
+          <p class="font-normal text-[11px] text-rose-950">${msg}</p>
+        `;
+      }
+    }
+
+    // Generate Scannable Carton Label Sticker
+    function generateQRLabel(skuId) {
+      const item = fgStock.find(f => f.id === skuId);
+      if (!item) return;
+
+      document.getElementById('lbl-sku').innerText = item.code;
+      document.getElementById('lbl-name').innerText = item.name;
+      document.getElementById('lbl-shade').innerText = item.shade || 'Standard';
+
+      const qrContainer = document.getElementById('qr-code-display');
+      qrContainer.innerHTML = '';
+
+      // Standard JSON Payload for the sticker
+      const payload = JSON.stringify({
+        code: item.code,
+        name: item.name,
+        shade: item.shade || 'Standard',
+        qty: 1
+      });
+
+      new QRCode(qrContainer, {
+        text: payload,
+        width: 140,
+        height: 140,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      openModal('modal-qr-label');
+    }
+
+    function printQrSticker() {
+      window.print();
+    }
+
+    // ========================================================
+    // VEHICLE LOAD & SPACE OPTIMIZATION ENGINE
+    // ========================================================
+    const VEHICLE_PRESETS = {
+      bolero: { l: 250, w: 158, h: 165, maxWt: 1500 },
+      ace: { l: 220, w: 150, h: 145, maxWt: 750 },
+      "14ft": { l: 426, w: 188, h: 198, maxWt: 4000 },
+      "17ft": { l: 518, w: 208, h: 213, maxWt: 5500 },
+      "19ft": { l: 580, w: 220, h: 228, maxWt: 7500 },
+      "20ft": { l: 590, w: 235, h: 239, maxWt: 21000 },
+      "32ft": { l: 970, w: 238, h: 259, maxWt: 15000 }
+    };
+
+    function applyVehiclePreset(key) {
+      if (key === 'custom') return;
+      const p = VEHICLE_PRESETS[key];
+      if (!p) return;
+      document.getElementById('vlo-veh-length').value = p.l;
+      document.getElementById('vlo-veh-width').value = p.w;
+      document.getElementById('vlo-veh-height').value = p.h;
+      document.getElementById('vlo-veh-maxweight').value = p.maxWt;
+      calculateVehicleOptimization();
+    }
+
+    function addOptimizerCargoRow() {
+      optimizerItems.push({
+        id: 'opt_' + Date.now(),
+        name: 'Custom Product Box',
+        boxes: 5,
+        length: 100,
+        width: 50,
+        height: 40,
+        weight: 20,
+        maxTier: 4
+      });
+      saveAll();
+      renderOptimizerCargoRows();
+      calculateVehicleOptimization();
+    }
+
+    function deleteOptimizerRow(index) {
+      optimizerItems.splice(index, 1);
+      saveAll();
+      renderOptimizerCargoRows();
+      calculateVehicleOptimization();
+    }
+
+    function updateOptimizerItem(index, field, value) {
+      if (field === 'name') {
+        optimizerItems[index][field] = value;
+      } else {
+        optimizerItems[index][field] = Math.max(1, parseFloat(value) || 0);
+      }
+      saveAll();
+      calculateVehicleOptimization();
+    }
+
+    function renderOptimizerCargoRows() {
+      const tbody = document.getElementById('vlo-cargo-tbody');
+      tbody.innerHTML = optimizerItems.map((item, idx) => {
+        const itemVol = ((item.length * item.width * item.height) / 1000000) * item.boxes;
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="p-2.5">
+              <input type="text" value="${item.name}" onchange="updateOptimizerItem(${idx}, 'name', this.value)" class="w-full border rounded p-1 text-xs font-semibold text-slate-800">
+            </td>
+            <td class="p-2.5 text-center">
+              <input type="number" min="1" value="${item.boxes}" oninput="updateOptimizerItem(${idx}, 'boxes', this.value)" class="w-16 border rounded p-1 text-xs text-center font-bold">
+            </td>
+            <td class="p-2.5 text-center">
+              <div class="inline-flex items-center gap-1">
+                <input type="number" min="1" value="${item.length}" oninput="updateOptimizerItem(${idx}, 'length', this.value)" title="Length (cm)" class="w-12 border rounded p-1 text-xs text-center font-mono">
+                <span class="text-slate-400">×</span>
+                <input type="number" min="1" value="${item.width}" oninput="updateOptimizerItem(${idx}, 'width', this.value)" title="Width (cm)" class="w-12 border rounded p-1 text-xs text-center font-mono">
+                <span class="text-slate-400">×</span>
+                <input type="number" min="1" value="${item.height}" oninput="updateOptimizerItem(${idx}, 'height', this.value)" title="Height (cm)" class="w-12 border rounded p-1 text-xs text-center font-mono">
+              </div>
+            </td>
+            <td class="p-2.5 text-center">
+              <input type="number" min="1" max="10" value="${item.maxTier || 3}" oninput="updateOptimizerItem(${idx}, 'maxTier', this.value)" title="Max Stacking Tiers" class="w-12 border rounded p-1 text-xs text-center font-bold text-amber-800">
+            </td>
+            <td class="p-2.5 text-right">
+              <input type="number" min="0" value="${item.weight}" oninput="updateOptimizerItem(${idx}, 'weight', this.value)" class="w-16 border rounded p-1 text-xs text-right font-mono">
+            </td>
+            <td class="p-2.5 text-right font-mono font-bold text-slate-700">
+              ${itemVol.toFixed(2)}
+            </td>
+            <td class="p-2.5 text-center">
+              <button onclick="deleteOptimizerRow(${idx})" class="text-rose-500 hover:text-rose-700 font-bold">&times;</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function calculateVehicleOptimization() {
+      const vehL = parseFloat(document.getElementById('vlo-veh-length').value) || 1;
+      const vehW = parseFloat(document.getElementById('vlo-veh-width').value) || 1;
+      const vehH = parseFloat(document.getElementById('vlo-veh-height').value) || 1;
+      const maxWt = parseFloat(document.getElementById('vlo-veh-maxweight').value) || 1;
+
+      const vehicleVolCBM = (vehL * vehW * vehH) / 1000000;
+      document.getElementById('vlo-veh-cbm').value = `${vehicleVolCBM.toFixed(2)} CBM (${(vehicleVolCBM * 35.3147).toFixed(0)} CuFt)`;
+      document.getElementById('vlo-capacity-cbm').innerText = vehicleVolCBM.toFixed(2);
+      document.getElementById('vlo-max-weight').innerText = maxWt.toLocaleString();
+
+      document.getElementById('viz-bed-dim').innerText = `${vehL} × ${vehW} cm`;
+      document.getElementById('viz-ceiling-dim').innerText = `${vehH} cm`;
+
+      let totalCargoVolCBM = 0;
+      let totalCargoWeight = 0;
+      let totalFloorFootprint = 0;
+      let maxStackHeightUsed = 0;
+
+      const vehicleFloorArea = vehL * vehW;
+
+      optimizerItems.forEach(item => {
+        const itemVol = ((item.length * item.width * item.height) / 1000000) * item.boxes;
+        totalCargoVolCBM += itemVol;
+        totalCargoWeight += (item.weight * item.boxes);
+
+        const maxTiers = Math.min(item.maxTier || 3, Math.floor(vehH / item.height) || 1);
+        const layers = Math.max(1, maxTiers);
+        const boxesOnFloor = Math.ceil(item.boxes / layers);
+        const itemFootprint = (item.length * item.width) * boxesOnFloor;
+        totalFloorFootprint += itemFootprint;
+
+        const effectiveItemHeight = layers * item.height;
+        if (effectiveItemHeight > maxStackHeightUsed) {
+          maxStackHeightUsed = effectiveItemHeight;
+        }
+      });
+
+      const volPercent = Math.min(150, (totalCargoVolCBM / vehicleVolCBM) * 100);
+      const wtPercent = Math.min(150, (totalCargoWeight / maxWt) * 100);
+
+      document.getElementById('vlo-cargo-cbm').innerText = totalCargoVolCBM.toFixed(2);
+      document.getElementById('vlo-total-weight').innerText = totalCargoWeight.toLocaleString();
+
+      document.getElementById('vlo-vol-percent-text').innerText = `${volPercent.toFixed(1)}%`;
+      document.getElementById('vlo-wt-percent-text').innerText = `${wtPercent.toFixed(1)}%`;
+
+      const volBar = document.getElementById('vlo-vol-progressbar');
+      const wtBar = document.getElementById('vlo-wt-progressbar');
+
+      volBar.style.width = `${Math.min(100, volPercent)}%`;
+      wtBar.style.width = `${Math.min(100, wtPercent)}%`;
+
+      const statusPill = document.getElementById('vlo-status-pill');
+      const recText = document.getElementById('vlo-recommendation-text');
+      const recBox = document.getElementById('vlo-recommendation-box');
+
+      if (wtPercent > 100 || volPercent > 100) {
+        statusPill.innerText = "OVERLOAD DETECTED";
+        statusPill.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse";
+        recBox.className = "p-3 bg-rose-50 border border-rose-300 rounded-lg text-xs text-rose-900 flex items-start gap-2";
+        recText.innerHTML = `<b>WARNING:</b> Cargo exceeds vehicle capacity! Over by ${wtPercent > 100 ? (totalCargoWeight - maxWt).toFixed(0) + ' kg weight' : (totalCargoVolCBM - vehicleVolCBM).toFixed(2) + ' CBM volume'}. Select a larger truck or divide into two dispatches.`;
+        volBar.className = volPercent > 100 ? "bg-rose-600 h-3.5 rounded-full" : "bg-amber-500 h-3.5 rounded-full";
+        wtBar.className = wtPercent > 100 ? "bg-rose-600 h-3.5 rounded-full" : "bg-indigo-600 h-3.5 rounded-full";
+      } else if (volPercent > 80 || wtPercent > 80) {
+        statusPill.innerText = "Optimized / Near Full Capacity";
+        statusPill.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-300";
+        recBox.className = "p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2";
+        recText.innerHTML = `<b>EXCELLENT LOADING EFFICIENCY:</b> Vehicle utilized at ${volPercent.toFixed(1)}% space. Place heavy desks/frames on truck floor first, stack lighter chair boxes on top.`;
+        volBar.className = "bg-amber-500 h-3.5 rounded-full";
+        wtBar.className = "bg-indigo-600 h-3.5 rounded-full";
+      } else {
+        statusPill.innerText = "Space Available";
+        statusPill.className = "text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+        recBox.className = "p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-start gap-2";
+        recText.innerHTML = `<b>SURPLUS SPACE:</b> Plenty of room remaining (${(vehicleVolCBM - totalCargoVolCBM).toFixed(2)} CBM free). You can combine other consignments in this vehicle run.`;
+        volBar.className = "bg-emerald-500 h-3.5 rounded-full";
+        wtBar.className = "bg-indigo-600 h-3.5 rounded-full";
+      }
+
+      const floorUtilPercent = Math.min(100, (totalFloorFootprint / vehicleFloorArea) * 100);
+      document.getElementById('viz-floor-util').innerText = `${floorUtilPercent.toFixed(0)}%`;
+      document.getElementById('viz-height-util').innerText = `${Math.min(vehH, maxStackHeightUsed)} / ${vehH} cm`;
+
+      renderStackGraphic(vehH, maxStackHeightUsed);
+    }
+
+    function renderStackGraphic(truckHeight, stackHeight) {
+      const container = document.getElementById('vlo-stack-graphic');
+      if (optimizerItems.length === 0) {
+        container.innerHTML = `<div class="m-auto text-xs text-slate-500">No cargo items loaded.</div>`;
+        return;
+      }
+
+      const colors = ['bg-amber-500', 'bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-rose-500'];
+
+      container.innerHTML = optimizerItems.map((item, idx) => {
+        const color = colors[idx % colors.length];
+        return `
+          <div class="w-full ${color} text-slate-950 font-black text-[10px] px-2 py-1 rounded flex justify-between items-center shadow" style="min-height: 22px;">
+            <span class="truncate">${item.name} (${item.boxes} boxes)</span>
+            <span class="font-mono text-[9px] bg-black/20 text-white px-1 rounded">${item.length}×${item.width}×${item.height}cm</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function importPackingSlipToOptimizer() {
+      if (packingSlips.length === 0) {
+        alert("No packing slips have been created yet!");
+        return;
+      }
+
+      const select = document.getElementById('vlo-import-slip-select');
+      select.innerHTML = packingSlips.map(s => `
+        <option value="${s.id}">${s.id} - ${s.customer} (${s.items ? s.items.length : 1} Products, ${s.totalBoxes || 1} Cartons)</option>
+      `).join('');
+
+      openModal('modal-import-slip');
+    }
+
+    function confirmImportPackingSlip() {
+      const slipId = document.getElementById('vlo-import-slip-select').value;
+      const slip = packingSlips.find(s => s.id === slipId);
+      if (!slip) return;
+
+      optimizerItems = (slip.items || []).map((it, idx) => {
+        let l = 120, w = 60, h = 40, wt = 25;
+        const lower = (it.name || '').toLowerCase();
+        if (lower.includes('desk') || lower.includes('table')) { l = 160; w = 85; h = 25; wt = 48; }
+        else if (lower.includes('chair')) { l = 68; w = 68; h = 65; wt = 16; }
+        else if (lower.includes('rack')) { l = 210; w = 55; h = 25; wt = 38; }
+
+        return {
+          id: 'imp_' + idx + '_' + Date.now(),
+          name: `${it.code} (${it.shade || 'Standard'})`,
+          boxes: it.boxes || it.qty || 1,
+          length: l,
+          width: w,
+          height: h,
+          weight: wt,
+          maxTier: 4
+        };
+      });
+
+      saveAll();
+      renderOptimizerCargoRows();
+      calculateVehicleOptimization();
+      closeModal('modal-import-slip');
+      alert(`Imported ${optimizerItems.length} products from Packing Slip ${slipId}!`);
+    }
+
+    function printLoadingPlan() {
+      const vehL = document.getElementById('vlo-veh-length').value;
+      const vehW = document.getElementById('vlo-veh-width').value;
+      const vehH = document.getElementById('vlo-veh-height').value;
+      const totalVol = document.getElementById('vlo-cargo-cbm').innerText;
+      const totalWt = document.getElementById('vlo-total-weight').innerText;
+      const volFill = document.getElementById('vlo-vol-percent-text').innerText;
+      const wtFill = document.getElementById('vlo-wt-percent-text').innerText;
+
+      document.getElementById('previewTitle').innerText = 'Vehicle Load Manifest & Space Layout';
+      document.getElementById('btnPdfDirect').onclick = () => window.print();
+
+      const itemsHtml = optimizerItems.map((it, i) => `
+        <tr>
+          <td class="p-2 text-center font-mono">${i + 1}</td>
+          <td class="p-2 font-bold">${it.name}</td>
+          <td class="p-2 text-center font-black">${it.boxes} Cartons</td>
+          <td class="p-2 text-center font-mono">${it.length} × ${it.width} × ${it.height} cm</td>
+          <td class="p-2 text-center font-bold text-amber-800">Max ${it.maxTier || 3} Tiers</td>
+          <td class="p-2 text-right font-mono">${(it.weight * it.boxes)} kg</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('printableModalContent').innerHTML = `
+        <div class="border p-4 bg-white space-y-4">
+          <div class="flex justify-between items-center border-b pb-3">
+            <div class="flex items-center gap-3">
+              <img src="${FURNIFORGE_LOGO_PNG}" class="w-12 h-12 object-contain" alt="Logo" />
+              <div>
+                <h2 class="text-xl font-black text-slate-900 tracking-wider">FURNIFORGE</h2>
+                <p class="text-xs text-amber-700 font-bold">VEHICLE LOADING & CARGO SPACE MANIFEST</p>
+                <p class="text-[10px] text-slate-500">Ground Floor, Kendukona Chowk, Bamungaon, Puthimari, Kamrup, Assam 781380</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-bold bg-slate-900 text-white px-2.5 py-1 rounded">LOAD PLAN #LP-${Date.now().toString().slice(-4)}</span>
+              <p class="text-xs text-slate-500 mt-1">Generated: ${new Date().toLocaleDateString()}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 text-xs gap-2 py-2 bg-slate-50 p-2.5 rounded border">
+            <div>
+              <p><b>Vehicle Cargo Bed:</b> ${vehL} cm (L) × ${vehW} cm (W) × ${vehH} cm (H)</p>
+              <p><b>Total Weight Load:</b> ${totalWt} kg (${wtFill} of Max Payload)</p>
+            </div>
+            <div>
+              <p><b>Total Volume Occupied:</b> ${totalVol} CBM (${volFill} Space Efficiency)</p>
+              <p><b>Loading Strategy:</b> Heavy flatpacks bottom, chair cubes stacked upper tier</p>
+            </div>
+          </div>
+
+          <table class="w-full text-xs text-left border">
+            <thead class="bg-slate-100 border-b">
+              <tr>
+                <th class="p-2 text-center">#</th>
+                <th class="p-2">Carton / Product Description</th>
+                <th class="p-2 text-center">Box Count</th>
+                <th class="p-2 text-center">Dimensions (L×W×H)</th>
+                <th class="p-2 text-center">Stacking Limit</th>
+                <th class="p-2 text-right">Total Weight</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">${itemsHtml}</tbody>
+          </table>
+
+          <div class="grid grid-cols-2 gap-8 pt-6 border-t text-[11px]">
+            <div><p class="border-b pb-6">Warehouse Loading Supervisor:</p></div>
+            <div><p class="border-b pb-6">Driver Vehicle Inspection Sign:</p></div>
+          </div>
+        </div>
+      `;
+      openModal('modal-preview');
+    }
+
+    // ==========================================
+    // CLOUD SYNC & LOCAL STORAGE ENGINE
+    // ==========================================
+    function initFirebaseFromStorage() {
+      const config = JSON.parse(localStorage.getItem('ff_firebase_config'));
+      if (config && config.databaseURL) {
+        document.getElementById('fb-databaseURL').value = config.databaseURL || '';
+        document.getElementById('fb-apiKey').value = config.apiKey || '';
+        document.getElementById('fb-projectId').value = config.projectId || '';
+        setupFirebase(config);
+      }
+    }
+
+    function connectCloudSync() {
+      const dbURL = document.getElementById('fb-databaseURL').value.trim();
+      const apiKey = document.getElementById('fb-apiKey').value.trim();
+      const projectId = document.getElementById('fb-projectId').value.trim();
+
+      if (!dbURL) {
+        alert("Please enter at least your Firebase Database URL!");
+        return;
+      }
+
+      const config = { databaseURL: dbURL, apiKey: apiKey || "dummy-key", projectId: projectId || "furniforge-erp" };
+      localStorage.setItem('ff_firebase_config', JSON.stringify(config));
+      setupFirebase(config);
+      closeModal('modal-cloud-sync');
+    }
+
+    function setupFirebase(config) {
+      try {
+        if (!firebase.apps.length) firebase.initializeApp(config);
+        fbDatabase = firebase.database();
+        const rootRef = fbDatabase.ref('furniforge_live');
+
+        document.getElementById('cloudStatusDot').className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+        document.getElementById('cloudStatusText').innerText = "Live Synced (Firebase)";
+        document.getElementById('cloudStatusBadge').className = "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition bg-emerald-950/80 text-emerald-300 border-emerald-600";
+        isCloudConnected = true;
+
+        rootRef.once('value').then(snapshot => {
+          if (!snapshot.exists()) pushLocalToCloud();
+        });
+
+        rootRef.on('value', snapshot => {
+          const val = snapshot.val();
+          if (val) {
+            isSyncingFromCloud = true;
+            sfgStock = val.sfgStock || [];
+            fgStock = val.fgStock || [];
+            packingSlips = val.packingSlips || [];
+            dispatchRecords = val.dispatchRecords || [];
+            optimizerItems = val.optimizerItems || optimizerItems;
+
+            localStorage.setItem('ff_sfg_v11', JSON.stringify(sfgStock));
+            localStorage.setItem('ff_fg_v11', JSON.stringify(fgStock));
+            localStorage.setItem('ff_packing_v11', JSON.stringify(packingSlips));
+            localStorage.setItem('ff_dispatch_v11', JSON.stringify(dispatchRecords));
+            localStorage.setItem('ff_optimizer_items_v11', JSON.stringify(optimizerItems));
+
+            renderAll();
+            renderOptimizerCargoRows();
+            calculateVehicleOptimization();
+            isSyncingFromCloud = false;
+          }
+        });
+      } catch (err) {
+        alert("Firebase Connection error: " + err.message);
+        disconnectCloudSync();
+      }
+    }
+
+    function pushLocalToCloud() {
+      if (!isCloudConnected || !fbDatabase || isSyncingFromCloud) return;
+      fbDatabase.ref('furniforge_live').set({
+        sfgStock: sfgStock,
+        fgStock: fgStock,
+        packingSlips: packingSlips,
+        dispatchRecords: dispatchRecords,
+        optimizerItems: optimizerItems,
+        lastUpdated: new Date().toISOString()
+      }).catch(err => console.error("Cloud push failed:", err));
+    }
+
+    function disconnectCloudSync() {
+      localStorage.removeItem('ff_firebase_config');
+      isCloudConnected = false;
+      document.getElementById('cloudStatusDot').className = "w-2 h-2 rounded-full bg-slate-400";
+      document.getElementById('cloudStatusText').innerText = "Local Storage";
+      document.getElementById('cloudStatusBadge').className = "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition bg-slate-800 text-slate-300 border-slate-700 hover:border-amber-400";
+      closeModal('modal-cloud-sync');
+      alert("Disconnected from Team Cloud. Local storage active.");
+    }
+
+    // ==========================================
+    // BACKUP & RESTORE
+    // ==========================================
+    function backupAllData() {
+      const backupPayload = {
+        app: "FURNIFORGE_ERP",
+        version: "11.0",
+        exportDate: new Date().toISOString(),
+        data: { sfgStock, fgStock, packingSlips, dispatchRecords, optimizerItems }
+      };
+      const jsonStr = JSON.stringify(backupPayload, null, 2);
+      const today = new Date().toISOString().split('T')[0];
+      triggerDownload(jsonStr, `FURNIFORGE_ERP_Backup_${today}.json`, 'application/json');
+    }
+
+    function restoreAllData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed.data) { alert('Invalid backup file!'); return; }
+
+          sfgStock = parsed.data.sfgStock || [];
+          fgStock = parsed.data.fgStock || [];
+          packingSlips = parsed.data.packingSlips || [];
+          dispatchRecords = parsed.data.dispatchRecords || [];
+          optimizerItems = parsed.data.optimizerItems || optimizerItems;
+
+          saveAll();
+          renderAll();
+          renderOptimizerCargoRows();
+          calculateVehicleOptimization();
+          alert('Data successfully restored!');
+        } catch (err) {
+          alert('Error: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ==========================================
+    // UI NAVIGATION & RENDER FUNCTIONS
+    // ==========================================
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-amber-600', 'text-white');
+        btn.classList.add('text-slate-300', 'hover:bg-slate-800');
+      });
+      document.getElementById('sec-' + tabId).classList.remove('hidden');
+      const activeBtn = document.getElementById('tab-' + tabId);
+      activeBtn.classList.remove('text-slate-300', 'hover:bg-slate-800');
+      activeBtn.classList.add('bg-amber-600', 'text-white');
+
+      if (tabId === 'loading-optimizer') {
+        renderOptimizerCargoRows();
+        calculateVehicleOptimization();
+      } else {
+        renderAll();
+      }
+    }
+
+    function openModal(id) {
+      if (id === 'modal-dispatch') populateSlipSelect();
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById(id).classList.add('flex');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      document.getElementById(id).classList.remove('flex');
+    }
+
+    function clearSearch(inputId, renderFn) {
+      document.getElementById(inputId).value = '';
+      renderFn();
+    }
+
+    function getDynamicStatusBadge(qty, lowLimit, critLimit) {
+      const low = parseInt(lowLimit) || 25;
+      const crit = parseInt(critLimit) || 10;
+      if (qty <= crit) {
+        return '<span class="px-2.5 py-1 rounded text-xs font-black bg-red-100 text-red-800 border border-red-300 tracking-wider">CRITICAL LOW</span>';
+      } else if (qty <= low) {
+        return '<span class="px-2.5 py-1 rounded text-xs font-black bg-amber-100 text-amber-800 border border-amber-300 tracking-wider">LOW STOCK</span>';
+      } else {
+        return '<span class="px-2.5 py-1 rounded text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 tracking-wider">ADEQUATE</span>';
+      }
+    }
+
+    function promptEditLimits(type, id) {
+      const list = type === 'sfg' ? sfgStock : fgStock;
+      const item = list.find(x => x.id === id);
+      if (!item) return;
+
+      document.getElementById('editLimitsType').value = type;
+      document.getElementById('editLimitsId').value = id;
+      document.getElementById('editLimitsLow').value = item.lowLimit || 25;
+      document.getElementById('editLimitsCrit').value = item.critLimit || 10;
+      document.getElementById('editLimitsSubtitle').innerText = `${item.code} (${item.shade || ''}) | Current Stock: ${item.qty}`;
+      openModal('modal-edit-limits');
+    }
+
+    function handleSaveLimits(e) {
+      e.preventDefault();
+      const type = document.getElementById('editLimitsType').value;
+      const id = document.getElementById('editLimitsId').value;
+      const low = parseInt(document.getElementById('editLimitsLow').value);
+      const crit = parseInt(document.getElementById('editLimitsCrit').value);
+
+      if (crit >= low) { alert('Critical limit must be smaller than Low limit!'); return; }
+      const list = type === 'sfg' ? sfgStock : fgStock;
+      const item = list.find(x => x.id === id);
+      if (item) {
+        item.lowLimit = low;
+        item.critLimit = crit;
+        saveAll();
+        renderAll();
+        closeModal('modal-edit-limits');
+      }
+    }
+
+    function adjustQty(type, id, delta) {
+      const list = type === 'sfg' ? sfgStock : fgStock;
+      const item = list.find(x => x.id === id);
+      if (!item) return;
+      item.qty = Math.max(0, item.qty + delta);
+      saveAll();
+      renderAll();
+    }
+
+    function promptEditQty(type, id) {
+      const list = type === 'sfg' ? sfgStock : fgStock;
+      const item = list.find(x => x.id === id);
+      if (!item) return;
+
+      document.getElementById('editQtyType').value = type;
+      document.getElementById('editQtyId').value = id;
+      document.getElementById('editQtyVal').value = item.qty;
+      document.getElementById('editQtyTitle').innerText = 'Adjust Quantity for ' + (item.code || item.name);
+      document.getElementById('editQtySubtitle').innerText = `Shade: ${item.shade}`;
+      openModal('modal-edit-qty');
+    }
+
+    function handleDirectQtySubmit(e) {
+      e.preventDefault();
+      const type = document.getElementById('editQtyType').value;
+      const id = document.getElementById('editQtyId').value;
+      const val = parseInt(document.getElementById('editQtyVal').value);
+
+      const list = type === 'sfg' ? sfgStock : fgStock;
+      const item = list.find(x => x.id === id);
+      if (item) {
+        item.qty = Math.max(0, val);
+        saveAll();
+        renderAll();
+        closeModal('modal-edit-qty');
+      }
+    }
+
+    function renderSFG() {
+      const query = (document.getElementById('search-sfg') ? document.getElementById('search-sfg').value : '').toLowerCase().trim();
+      const tbody = document.getElementById('sfg-table-body');
+
+      const filtered = sfgStock.filter(item => {
+        if (!query) return true;
+        return (item.code && item.code.toLowerCase().includes(query)) ||
+               (item.desc && item.desc.toLowerCase().includes(query)) ||
+               (item.shade && item.shade.toLowerCase().includes(query)) ||
+               (item.stage && item.stage.toLowerCase().includes(query));
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400 font-semibold">No semi-finished items found matching "${query}".</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((item) => {
+        const idx = sfgStock.findIndex(x => x.id === item.id);
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 font-bold text-slate-800">${item.code}</td>
+            <td class="p-3 text-slate-700">${item.desc}</td>
+            <td class="p-3 font-semibold text-amber-800 text-xs">${item.shade || 'Standard'}</td>
+            <td class="p-3"><span class="px-2 py-1 rounded bg-slate-100 text-slate-800 text-xs font-semibold">${item.stage}</span></td>
+            <td class="p-3 text-center">
+              <div class="inline-flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border">
+                <button onclick="adjustQty('sfg', '${item.id}', -1)" class="w-6 h-6 rounded bg-white hover:bg-slate-200 border text-slate-700 font-bold text-xs">-1</button>
+                <span class="w-12 font-black text-slate-900 text-center">${item.qty}</span>
+                <button onclick="adjustQty('sfg', '${item.id}', 1)" class="w-6 h-6 rounded bg-white hover:bg-slate-200 border text-slate-700 font-bold text-xs">+1</button>
+                <button onclick="adjustQty('sfg', '${item.id}', 10)" class="w-7 h-6 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-bold text-xs">+10</button>
+                <button onclick="promptEditQty('sfg', '${item.id}')" title="Set exact number" class="px-1.5 h-6 bg-slate-800 hover:bg-slate-900 text-white rounded text-[10px] font-bold">Set</button>
+              </div>
+            </td>
+            <td class="p-3 text-center">
+              <button onclick="promptEditLimits('sfg', '${item.id}')" class="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2 py-1 rounded font-semibold text-slate-700">
+                Low: ${item.lowLimit || 25} | Crit: ${item.critLimit || 10}
+              </button>
+            </td>
+            <td class="p-3 text-center">${getDynamicStatusBadge(item.qty, item.lowLimit, item.critLimit)}</td>
+            <td class="p-3 text-center">
+              <button onclick="deleteSFG(${idx})" class="text-red-500 hover:text-red-700 text-xs font-bold">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderFG() {
+      const query = (document.getElementById('search-fg') ? document.getElementById('search-fg').value : '').toLowerCase().trim();
+      const tbody = document.getElementById('fg-table-body');
+
+      const filtered = fgStock.filter(item => {
+        if (!query) return true;
+        return (item.code && item.code.toLowerCase().includes(query)) ||
+               (item.name && item.name.toLowerCase().includes(query)) ||
+               (item.shade && item.shade.toLowerCase().includes(query));
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400 font-semibold">No finished goods found matching "${query}".</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map((item) => {
+        const idx = fgStock.findIndex(x => x.id === item.id);
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 font-bold text-slate-800">${item.code}</td>
+            <td class="p-3 text-slate-700">${item.name}</td>
+            <td class="p-3 font-semibold text-amber-800 text-xs">${item.shade || 'Standard'}</td>
+            <td class="p-3 text-center">
+              <div class="inline-flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border">
+                <button onclick="adjustQty('fg', '${item.id}', -1)" class="w-6 h-6 rounded bg-white hover:bg-slate-200 border text-slate-700 font-bold text-xs">-1</button>
+                <span class="w-12 font-black text-slate-900 text-center">${item.qty}</span>
+                <button onclick="adjustQty('fg', '${item.id}', 1)" class="w-6 h-6 rounded bg-white hover:bg-slate-200 border text-slate-700 font-bold text-xs">+1</button>
+                <button onclick="adjustQty('fg', '${item.id}', 10)" class="w-7 h-6 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-bold text-xs">+10</button>
+                <button onclick="promptEditQty('fg', '${item.id}')" title="Set exact number" class="px-1.5 h-6 bg-slate-800 hover:bg-slate-900 text-white rounded text-[10px] font-bold">Set</button>
+              </div>
+            </td>
+            <td class="p-3 text-center">
+              <button onclick="promptEditLimits('fg', '${item.id}')" class="text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2 py-1 rounded font-semibold text-slate-700">
+                Low: ${item.lowLimit || 25} | Crit: ${item.critLimit || 10}
+              </button>
+            </td>
+            <td class="p-3 text-center">${getDynamicStatusBadge(item.qty, item.lowLimit, item.critLimit)}</td>
+            <td class="p-3 text-center space-x-1">
+              <button onclick="generateQRLabel('${item.id}')" class="bg-purple-50 hover:bg-purple-100 border border-purple-300 text-purple-700 text-xs font-bold px-2 py-1 rounded shadow-sm" title="Generate carton QR sticker label">
+                🏷️ QR Label
+              </button>
+              <button onclick="deleteFG(${idx})" class="text-red-500 hover:text-red-700 text-xs font-bold">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderPacking() {
+      const tbody = document.getElementById('packing-table-body');
+      tbody.innerHTML = packingSlips.map((p) => {
+        const totalUnits = (p.items || []).reduce((acc, cur) => acc + cur.qty, 0);
+        const totalCartons = p.totalBoxes || (p.items || []).reduce((acc, cur) => acc + (cur.boxes || 0), 0);
+        const itemsSummary = (p.items || []).map(i => `${i.code} (${i.qty})`).join(', ');
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 font-bold text-amber-700">${p.id}</td>
+            <td class="p-3 font-semibold text-slate-800">${p.customer}</td>
+            <td class="p-3 text-slate-600 font-mono text-xs">${p.po}</td>
+            <td class="p-3 text-slate-700 text-xs max-w-xs truncate" title="${itemsSummary}">${p.items ? p.items.length : 1} Products: <span class="text-slate-500">${itemsSummary}</span></td>
+            <td class="p-3 text-right font-black text-slate-900">${totalUnits}</td>
+            <td class="p-3 text-center font-bold text-slate-800">${totalCartons}</td>
+            <td class="p-3 text-center space-x-1">
+              <button onclick="editPackingSlip('${p.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-2 py-1 rounded shadow">Edit</button>
+              <button onclick="previewPackingSlip('${p.id}')" class="bg-slate-100 hover:bg-slate-200 border text-slate-700 text-xs font-bold px-2 py-1 rounded">View</button>
+              <button onclick="downloadPackingSlipPDF('${p.id}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-2 py-1 rounded">PDF</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderDispatch() {
+      const tbody = document.getElementById('dispatch-table-body');
+      tbody.innerHTML = dispatchRecords.map((d, idx) => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-3 font-bold text-slate-900">${d.id}</td>
+          <td class="p-3 text-xs text-slate-500">${d.date}</td>
+          <td class="p-3 font-mono font-bold text-slate-800">${d.vehicle}</td>
+          <td class="p-3 text-slate-700">${d.transporter}</td>
+          <td class="p-3 text-slate-800 text-xs"><b>${d.driver}</b><br><span class="text-slate-500">${d.phone}</span></td>
+          <td class="p-3"><span class="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-xs font-bold border border-amber-200">${d.slipId}</span></td>
+          <td class="p-3 text-slate-700 text-xs">${d.dest}</td>
+          <td class="p-3 text-center space-x-1">
+            <button onclick="previewGatePass('${d.id}')" class="bg-slate-100 hover:bg-slate-200 border text-slate-700 text-xs font-bold px-2 py-1 rounded">View</button>
+            <button onclick="downloadGatePassPDF('${d.id}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-2 py-1 rounded">PDF</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAll() {
+      renderSFG();
+      renderFG();
+      renderPacking();
+      renderDispatch();
+    }
+
+    // CRUD Handlers
+    function saveSFG(e) {
+      e.preventDefault();
+      const code = document.getElementById('sfg-code').value.trim().toUpperCase();
+      const desc = document.getElementById('sfg-desc').value.trim();
+      const shade = document.getElementById('sfg-shade').value.trim();
+      const stage = document.getElementById('sfg-stage').value;
+      const qty = parseInt(document.getElementById('sfg-qty').value);
+      const lowLimit = parseInt(document.getElementById('sfg-low-limit').value) || 25;
+      const critLimit = parseInt(document.getElementById('sfg-crit-limit').value) || 10;
+
+      const existing = sfgStock.find(i => i.code === code && i.shade.toLowerCase() === shade.toLowerCase());
+      if (existing) {
+        existing.qty += qty;
+        existing.stage = stage;
+        existing.lowLimit = lowLimit;
+        existing.critLimit = critLimit;
+      } else {
+        sfgStock.push({ id: Date.now().toString(), code, desc, shade, stage, qty, lowLimit, critLimit });
+      }
+
+      saveAll();
+      renderSFG();
+      closeModal('modal-sfg');
+      e.target.reset();
+    }
+
+    function saveFG(e) {
+      e.preventDefault();
+      const code = document.getElementById('fg-code').value.trim().toUpperCase();
+      const name = document.getElementById('fg-name').value.trim();
+      const shade = document.getElementById('fg-shade').value.trim();
+      const qty = parseInt(document.getElementById('fg-qty').value);
+      const lowLimit = parseInt(document.getElementById('fg-low-limit').value) || 25;
+      const critLimit = parseInt(document.getElementById('fg-crit-limit').value) || 10;
+
+      const existing = fgStock.find(i => i.code === code && i.shade.toLowerCase() === shade.toLowerCase());
+      if (existing) {
+        existing.qty += qty;
+        existing.lowLimit = lowLimit;
+        existing.critLimit = critLimit;
+      } else {
+        fgStock.push({ id: Date.now().toString(), code, name, shade, qty, lowLimit, critLimit });
+      }
+
+      saveAll();
+      renderFG();
+      closeModal('modal-fg');
+      e.target.reset();
+    }
+
+    // Multi-Item Packing Slip logic with edit safety
+    function openCreatePackingModal() {
+      editBackupOldItems = null;
+      document.getElementById('mps-edit-mode-id').value = '';
+      document.getElementById('mpsModalTitle').innerText = 'Prepare Multi-Item Packing Slip';
+      document.getElementById('mpsSubmitBtn').innerText = 'Generate Slip & Download PDF';
+
+      currentDraftPackingItems = [];
+      document.getElementById('mps-customer').value = '';
+      document.getElementById('mps-po').value = '';
+      document.getElementById('mps-gross').value = '';
+      document.getElementById('mps-net').value = '';
+      document.getElementById('mps-date').value = new Date().toISOString().split('T')[0];
+
+      populateMPSItemSelect();
+      renderDraftPackingTable();
+      openModal('modal-packing-multi');
+    }
+
+    function editPackingSlip(slipId) {
+      const slip = packingSlips.find(s => s.id === slipId);
+      if (!slip) return;
+
+      (slip.items || []).forEach(packedItem => {
+        let fg = fgStock.find(f => (packedItem.fgId && f.id === packedItem.fgId) || (f.code === packedItem.code && f.shade.toLowerCase() === (packedItem.shade || '').toLowerCase()));
+        if (fg) fg.qty += packedItem.qty;
+      });
+      renderFG();
+
+      editBackupOldItems = JSON.parse(JSON.stringify(slip.items || []));
+      document.getElementById('mps-edit-mode-id').value = slip.id;
+      document.getElementById('mpsModalTitle').innerText = `Edit Packing Slip: ${slip.id}`;
+      document.getElementById('mpsSubmitBtn').innerText = 'Update Slip & Recalculate';
+
+      document.getElementById('mps-customer').value = slip.customer;
+      document.getElementById('mps-po').value = slip.po;
+      document.getElementById('mps-date').value = slip.date;
+      document.getElementById('mps-gross').value = slip.gross !== 'N/A' ? slip.gross : '';
+      document.getElementById('mps-net').value = slip.net !== 'N/A' ? slip.net : '';
+
+      currentDraftPackingItems = (slip.items || []).map(item => {
+        let fg = fgStock.find(f => (item.fgId && f.id === item.fgId) || (f.code === item.code && f.shade.toLowerCase() === (item.shade || '').toLowerCase()));
+        return {
+          fgId: fg ? fg.id : (item.fgId || ''),
+          code: item.code,
+          name: item.name,
+          shade: item.shade,
+          qty: item.qty,
+          boxes: item.boxes
+        };
+      });
+
+      populateMPSItemSelect();
+      renderDraftPackingTable();
+      openModal('modal-packing-multi');
+    }
+
+    function cancelPackingSlipModal() {
+      const editingId = document.getElementById('mps-edit-mode-id').value;
+      if (editingId && editBackupOldItems) {
+        editBackupOldItems.forEach(oldItem => {
+          let fg = fgStock.find(f => (oldItem.fgId && f.id === oldItem.fgId) || (f.code === oldItem.code && f.shade.toLowerCase() === (oldItem.shade || '').toLowerCase()));
+          if (fg) fg.qty = Math.max(0, fg.qty - oldItem.qty);
+        });
+        saveAll();
+        renderFG();
+      }
+      editBackupOldItems = null;
+      closeModal('modal-packing-multi');
+    }
+
+    function populateMPSItemSelect() {
+      const select = document.getElementById('mps-item-select');
+      select.innerHTML = '<option value="">-- Choose Finished Product --</option>' +
+        fgStock.map(f => `<option value="${f.id}">${f.code} - ${f.name} [Shade: ${f.shade}] (Available Stock: ${f.qty})</option>`).join('');
+    }
+
+    function addPackingItemRow() {
+      const fgId = document.getElementById('mps-item-select').value;
+      const qty = parseInt(document.getElementById('mps-item-qty').value);
+      const boxes = parseInt(document.getElementById('mps-item-boxes').value);
+
+      if (!fgId || !qty || !boxes) { alert('Select an item and enter valid qty/cartons'); return; }
+      const fg = fgStock.find(f => f.id === fgId);
+      if (!fg) return;
+
+      const allocated = currentDraftPackingItems.filter(i => i.fgId === fgId).reduce((s, c) => s + c.qty, 0);
+      if (fg.qty < (allocated + qty)) { alert(`Insufficient stock! Available: ${fg.qty}`); return; }
+
+      currentDraftPackingItems.push({ fgId: fg.id, code: fg.code, name: fg.name, shade: fg.shade, qty, boxes });
+      document.getElementById('mps-item-qty').value = '';
+      document.getElementById('mps-item-boxes').value = '';
+      renderDraftPackingTable();
+    }
+
+    function removeDraftItem(index) {
+      currentDraftPackingItems.splice(index, 1);
+      renderDraftPackingTable();
+    }
+
+    function renderDraftPackingTable() {
+      const tbody = document.getElementById('mps-items-table-body');
+      if (currentDraftPackingItems.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">No items added yet.</td></tr>';
+      } else {
+        tbody.innerHTML = currentDraftPackingItems.map((item, idx) => `
+          <tr class="hover:bg-slate-50">
+            <td class="p-2 font-bold">${item.code}</td>
+            <td class="p-2">${item.name}</td>
+            <td class="p-2 font-semibold text-amber-800">${item.shade}</td>
+            <td class="p-2 text-right font-black">${item.qty}</td>
+            <td class="p-2 text-center font-bold">${item.boxes}</td>
+            <td class="p-2 text-center">
+              <button type="button" onclick="removeDraftItem(${idx})" class="text-red-500 hover:text-red-700 font-bold">&times; Remove</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+      const totalBoxes = currentDraftPackingItems.reduce((acc, cur) => acc + cur.boxes, 0);
+      const totalUnits = currentDraftPackingItems.reduce((acc, cur) => acc + cur.qty, 0);
+      document.getElementById('cartonCounterSummary').innerText = `Total Cartons: ${totalBoxes} | Total Qty: ${totalUnits} Units`;
+    }
+
+    function saveMultiItemPackingSlip(e) {
+      e.preventDefault();
+      if (currentDraftPackingItems.length === 0) { alert('Add at least one product.'); return; }
+      const editingId = document.getElementById('mps-edit-mode-id').value;
+
+      for (const packed of currentDraftPackingItems) {
+        let fg = fgStock.find(f => (packed.fgId && f.id === packed.fgId) || (f.code === packed.code && f.shade.toLowerCase() === (packed.shade || '').toLowerCase()));
+        if (fg) fg.qty = Math.max(0, fg.qty - packed.qty);
+      }
+
+      const totalBoxes = currentDraftPackingItems.reduce((acc, cur) => acc + cur.boxes, 0);
+
+      if (editingId) {
+        const existingSlip = packingSlips.find(s => s.id === editingId);
+        if (existingSlip) {
+          existingSlip.customer = document.getElementById('mps-customer').value.trim();
+          existingSlip.po = document.getElementById('mps-po').value.trim();
+          existingSlip.date = document.getElementById('mps-date').value;
+          existingSlip.gross = document.getElementById('mps-gross').value || 'N/A';
+          existingSlip.net = document.getElementById('mps-net').value || 'N/A';
+          existingSlip.totalBoxes = totalBoxes;
+          existingSlip.items = [...currentDraftPackingItems];
+        }
+        editBackupOldItems = null;
+        saveAll();
+        renderAll();
+        closeModal('modal-packing-multi');
+        downloadPackingSlipPDF(editingId);
+      } else {
+        const newSlip = {
+          id: 'PS-FF-' + Math.floor(1000 + Math.random() * 9000),
+          customer: document.getElementById('mps-customer').value.trim(),
+          po: document.getElementById('mps-po').value.trim(),
+          date: document.getElementById('mps-date').value,
+          gross: document.getElementById('mps-gross').value || 'N/A',
+          net: document.getElementById('mps-net').value || 'N/A',
+          totalBoxes: totalBoxes,
+          items: [...currentDraftPackingItems]
+        };
+        packingSlips.unshift(newSlip);
+        saveAll();
+        renderAll();
+        closeModal('modal-packing-multi');
+        downloadPackingSlipPDF(newSlip.id);
+      }
+    }
+
+    function populateSlipSelect() {
+      const select = document.getElementById('disp-slip');
+      select.innerHTML = '<option value="DIRECT">Direct / Advance Delivery</option>' +
+        packingSlips.map(s => `<option value="${s.id}">${s.id} - ${s.customer}</option>`).join('');
+    }
+
+    function saveDispatch(e) {
+      e.preventDefault();
+      const newGatePass = {
+        id: 'GP-FF-' + Math.floor(100 + Math.random() * 900),
+        date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        vehicle: document.getElementById('disp-veh').value.trim().toUpperCase(),
+        transporter: document.getElementById('disp-trans').value.trim(),
+        driver: document.getElementById('disp-driver').value.trim(),
+        phone: document.getElementById('disp-phone').value.trim(),
+        slipId: document.getElementById('disp-slip').value,
+        dest: document.getElementById('disp-dest').value.trim(),
+        seal: document.getElementById('disp-seal').value.trim() || 'N/A'
+      };
+
+      dispatchRecords.unshift(newGatePass);
+      saveAll();
+      renderAll();
+      closeModal('modal-dispatch');
+      e.target.reset();
+      downloadGatePassPDF(newGatePass.id);
+    }
+
+    function deleteSFG(idx) {
+      if (confirm('Delete item?')) { sfgStock.splice(idx, 1); saveAll(); renderSFG(); }
+    }
+    function deleteFG(idx) {
+      if (confirm('Delete SKU?')) { fgStock.splice(idx, 1); saveAll(); renderFG(); }
+    }
+
+    // CSV Exports & Excel Imports
+    function downloadSFGExcelTemplate() {
+      const templateData = [{ "Item Code": "SFG-FRM-02", "Description": "Heavy Side Panel Frame", "Powder Colour Shade": "RAL 9005 Matte Black", "Stage": "MIG/TIG Welding Stage", "Quantity": 50, "Low Limit": 20, "Critical Limit": 10 }];
+      const ws = XLSX.utils.json_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "SFG_Template");
+      XLSX.writeFile(wb, "FURNIFORGE_SFG_Stock_Template.xlsx");
+    }
+
+    function downloadFGExcelTemplate() {
+      const templateData = [{ "SKU Code": "FG-TBL-101", "Product Name": "Heavy Industrial Conference Table", "Powder Colour Shade": "RAL 7016 Anthracite Grey", "Quantity": 25, "Low Limit": 15, "Critical Limit": 5 }];
+      const ws = XLSX.utils.json_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "FG_Template");
+      XLSX.writeFile(wb, "FURNIFORGE_Finished_Goods_Template.xlsx");
+    }
+
+    function handleExcelUpload(event, type) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+          if (!jsonData || jsonData.length === 0) { alert("The uploaded Excel sheet contains no rows!"); return; }
+
+          let addedCount = 0, updatedCount = 0;
+
+          if (type === 'sfg') {
+            jsonData.forEach(row => {
+              const code = (row["Item Code"] || row["code"] || "").toString().trim().toUpperCase();
+              const desc = (row["Description"] || row["desc"] || "").toString().trim();
+              const shade = (row["Powder Colour Shade"] || row["Colour Shade"] || row["shade"] || "Standard").toString().trim();
+              const stage = (row["Stage"] || row["stage"] || "MIG/TIG Welding Stage").toString().trim();
+              const qty = parseInt(row["Quantity"] || row["qty"] || 0);
+              const lowLimit = parseInt(row["Low Limit"] || 25);
+              const critLimit = parseInt(row["Critical Limit"] || 10);
+
+              if (!code || isNaN(qty)) return;
+
+              const existing = sfgStock.find(i => i.code === code && i.shade.toLowerCase() === shade.toLowerCase());
+              if (existing) {
+                existing.qty += qty;
+                if (stage) existing.stage = stage;
+                existing.lowLimit = lowLimit;
+                existing.critLimit = critLimit;
+                updatedCount++;
+              } else {
+                sfgStock.push({ id: Date.now().toString() + Math.random().toString(36).substring(2, 6), code, desc: desc || code, shade, stage, qty, lowLimit, critLimit });
+                addedCount++;
+              }
+            });
+            saveAll();
+            renderSFG();
+            alert(`SFG Import Complete: +${addedCount} new, ${updatedCount} updated.`);
+          } else if (type === 'fg') {
+            jsonData.forEach(row => {
+              const code = (row["SKU Code"] || row["Item Code"] || row["code"] || "").toString().trim().toUpperCase();
+              const name = (row["Product Name"] || row["Description"] || row["name"] || "").toString().trim();
+              const shade = (row["Powder Colour Shade"] || row["Colour Shade"] || row["shade"] || "Standard").toString().trim();
+              const qty = parseInt(row["Quantity"] || row["qty"] || 0);
+              const lowLimit = parseInt(row["Low Limit"] || 25);
+              const critLimit = parseInt(row["Critical Limit"] || 10);
+
+              if (!code || isNaN(qty)) return;
+
+              const existing = fgStock.find(i => i.code === code && i.shade.toLowerCase() === shade.toLowerCase());
+              if (existing) {
+                existing.qty += qty;
+                existing.lowLimit = lowLimit;
+                existing.critLimit = critLimit;
+                updatedCount++;
+              } else {
+                fgStock.push({ id: Date.now().toString() + Math.random().toString(36).substring(2, 6), code, name: name || code, shade, qty, lowLimit, critLimit });
+                addedCount++;
+              }
+            });
+            saveAll();
+            renderFG();
+            alert(`Finished Goods Import Complete: +${addedCount} new, ${updatedCount} updated.`);
+          }
+        } catch (err) {
+          alert("Error: " + err.message);
+        } finally {
+          event.target.value = "";
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function exportSFGCSV() {
+      let csv = 'Item Code,Description,Colour Shade,Work Stage,Quantity,Low Limit,Crit Limit\n' +
+        sfgStock.map(s => `"${s.code}","${s.desc}","${s.shade || ''}","${s.stage}",${s.qty},${s.lowLimit || 25},${s.critLimit || 10}`).join('\n');
+      triggerDownload(csv, 'FURNIFORGE_Semi_Finished_Stock.csv', 'text/csv');
+    }
+
+    function exportFGCSV() {
+      let csv = 'SKU Code,Product Name,Colour Shade,Quantity Available,Low Limit,Crit Limit\n' +
+        fgStock.map(f => `"${f.code}","${f.name}","${f.shade || ''}",${f.qty},${f.lowLimit || 25},${f.critLimit || 10}`).join('\n');
+      triggerDownload(csv, 'FURNIFORGE_Finished_Goods_Stock.csv', 'text/csv');
+    }
+
+    function triggerDownload(content, filename, type) {
+      const blob = new Blob([content], { type: type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ==========================================
+    // VECTOR PDF GENERATION
+    // ==========================================
+    function downloadPackingSlipPDF(slipId) {
+      const p = packingSlips.find(s => s.id === slipId);
+      if (!p) return;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 595.28, 92, 'F');
+
+      // Monogram Logo[cite: 3]
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(36, 16, 58, 58, 4, 4, 'F');
+      doc.addImage(FURNIFORGE_LOGO_PNG, 'PNG', 41, 21, 48, 48);
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.text('FURNIFORGE', 108, 40);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(245, 158, 11);
+      doc.text('FINELY CRAFTED FURNITURE', 108, 54);
+      doc.setTextColor(203, 213, 225);
+      doc.setFontSize(7.5);
+      doc.text('Ground Floor, Kendukona Chowk, Bamungaon, Puthimari, Kamrup, Assam 781380', 108, 68);
+      doc.text('Phone: +91 98220 00000 | Email: dispatch@furniforge.com', 108, 80);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(15);
+      doc.text('PACKING SLIP / DISPATCH ADVICE (MULTI-ITEM)', 36, 124);
+
+      doc.setFontSize(10);
+      doc.setTextColor(217, 119, 6);
+      doc.text('SLIP REF: ' + p.id, 440, 124);
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.rect(36, 136, 523, 75, 'FD');
+
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text('CUSTOMER / CONSIGNEE:', 46, 154);
+      doc.text('PURCHASE ORDER NO:', 46, 174);
+      doc.text('DISPATCH DATE:', 46, 194);
+
+      doc.text('TOTAL CARTONS / BOXES:', 320, 154);
+      doc.text('GROSS WEIGHT:', 320, 174);
+      doc.text('NET WEIGHT:', 320, 194);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(15, 23, 42);
+      doc.text(p.customer, 175, 154);
+      doc.text(p.po, 175, 174);
+      doc.text(p.date, 175, 194);
+
+      const totalBoxes = p.totalBoxes || (p.items || []).reduce((acc, cur) => acc + (cur.boxes || 0), 0);
+      doc.text(totalBoxes.toString() + ' Box(es)', 455, 154);
+      doc.text(p.gross || 'N/A', 455, 174);
+      doc.text(p.net || 'N/A', 455, 194);
+
+      const tableRows = (p.items || []).map((it, idx) => [
+        (idx + 1).toString(),
+        it.code,
+        it.name,
+        it.shade || 'Standard',
+        (it.boxes || 1).toString(),
+        it.qty.toString() + ' PCS'
+      ]);
+
+      const totalUnits = (p.items || []).reduce((acc, cur) => acc + cur.qty, 0);
+      tableRows.push(['', '', 'TOTAL CONSIGNMENT DISPATCH', '', totalBoxes.toString() + ' BOXES', totalUnits.toString() + ' PCS']);
+
+      doc.autoTable({
+        startY: 226,
+        margin: { left: 36, right: 36 },
+        head: [['SR.', 'SKU CODE', 'PRODUCT DESCRIPTION', 'POWDER SHADE', 'BOXES', 'QTY PACKED']],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 28 },
+          1: { cellWidth: 90, fontStyle: 'bold' },
+          2: { cellWidth: 200 },
+          3: { cellWidth: 105, textColor: [180, 83, 9] },
+          4: { halign: 'center', cellWidth: 45 },
+          5: { halign: 'right', cellWidth: 55, fontStyle: 'bold' }
+        },
+        styles: { fontSize: 8.5, cellPadding: 6 }
+      });
+
+      const signY = Math.max(doc.lastAutoTable.finalY + 70, 700);
+      doc.setDrawColor(148, 163, 184);
+      doc.line(36, signY, 180, signY);
+      doc.line(220, signY, 364, signY);
+      doc.line(405, signY, 549, signY);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105);
+      doc.text('PACKED & CHECKED BY', 50, signY + 14);
+      doc.text('DISPATCH CONTROLLER', 242, signY + 14);
+      doc.text('RECEIVER SIGNATURE', 430, signY + 14);
+
+      doc.save(`${p.id}_PackingSlip.pdf`);
+    }
+
+    function downloadGatePassPDF(gpId) {
+      const g = dispatchRecords.find(d => d.id === gpId);
+      if (!g) return;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 595.28, 92, 'F');
+
+      // Monogram Logo[cite: 3]
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(36, 16, 58, 58, 4, 4, 'F');
+      doc.addImage(FURNIFORGE_LOGO_PNG, 'PNG', 41, 21, 48, 48);
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.text('FURNIFORGE', 108, 40);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(245, 158, 11);
+      doc.text('FINELY CRAFTED FURNITURE', 108, 54);
+      doc.setTextColor(203, 213, 225);
+      doc.setFontSize(7.5);
+      doc.text('Ground Floor, Kendukona Chowk, Bamungaon, Puthimari, Kamrup, Assam 781380', 108, 68);
+      doc.text('Phone: +91 98220 00000 | Email: dispatch@furniforge.com', 108, 80);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(16);
+      doc.text('OUTWARD VEHICLE GATE PASS', 36, 125);
+
+      doc.setFontSize(10);
+      doc.setTextColor(217, 119, 6);
+      doc.text('PASS REF: ' + g.id, 440, 125);
+
+      doc.autoTable({
+        startY: 145,
+        margin: { left: 36, right: 36 },
+        head: [['PARAMETER', 'DISPATCH DETAILS']],
+        body: [
+          ['Date & Departure Time', g.date],
+          ['Vehicle Registration No', g.vehicle],
+          ['Transporter / Carrier', g.transporter],
+          ['Driver Name', g.driver],
+          ['Driver Mobile Number', g.phone],
+          ['Linked Packing Slip #', g.slipId],
+          ['Final Destination', g.dest],
+          ['Truck / Container Seal #', g.seal]
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 180, textColor: [51, 65, 85] },
+          1: { cellWidth: 343, fontStyle: 'bold', textColor: [15, 23, 42] }
+        },
+        styles: { fontSize: 9.5, cellPadding: 8 }
+      });
+
+      const noteY = doc.lastAutoTable.finalY + 25;
+      doc.setFillColor(254, 243, 199);
+      doc.setDrawColor(245, 158, 11);
+      doc.rect(36, noteY, 523, 45, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(146, 64, 14);
+      doc.text('SECURITY INSTRUCTIONS:', 46, noteY + 16);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(180, 83, 9);
+      doc.text('Security personnel must inspect physical consignment against referenced Packing Slip before gate opening.', 46, noteY + 30);
+
+      const signY = noteY + 100;
+      doc.setDrawColor(148, 163, 184);
+      doc.line(36, signY, 180, signY);
+      doc.line(220, signY, 364, signY);
+      doc.line(405, signY, 549, signY);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(71, 85, 105);
+      doc.text('SECURITY IN-CHARGE', 55, signY + 14);
+      doc.text('DISPATCH CONTROLLER', 242, signY + 14);
+      doc.text('DRIVER ACKNOWLEDGEMENT', 412, signY + 14);
+
+      doc.save(`${g.id}_GatePass.pdf`);
+    }
+
+    function previewPackingSlip(id) {
+      const p = packingSlips.find(s => s.id === id);
+      if (!p) return;
+      document.getElementById('previewTitle').innerText = 'Packing Slip Preview: ' + p.id;
+      document.getElementById('btnPdfDirect').onclick = () => downloadPackingSlipPDF(p.id);
+
+      const itemsHtml = (p.items || []).map((it, i) => `
+        <tr>
+          <td class="p-2 text-center font-mono">${i + 1}</td>
+          <td class="p-2 font-bold">${it.code}</td>
+          <td class="p-2">${it.name}</td>
+          <td class="p-2 font-semibold text-amber-800">${it.shade || 'Standard'}</td>
+          <td class="p-2 text-center font-bold">${it.boxes || 1}</td>
+          <td class="p-2 text-right font-bold">${it.qty} PCS</td>
+        </tr>
+      `).join('');
+
+      const totalBoxes = p.totalBoxes || (p.items || []).reduce((acc, cur) => acc + (cur.boxes || 0), 0);
+      const totalUnits = (p.items || []).reduce((acc, cur) => acc + cur.qty, 0);
+
+      document.getElementById('printableModalContent').innerHTML = `
+        <div class="border p-4 bg-white space-y-4">
+          <div class="flex justify-between items-center border-b pb-3">
+            <div class="flex items-center gap-3">
+              <img src="${FURNIFORGE_LOGO_PNG}" class="w-12 h-12 object-contain" alt="Logo" />
+              <div>
+                <h2 class="text-xl font-black text-slate-900 tracking-wider">FURNIFORGE</h2>
+                <p class="text-xs text-amber-700 font-bold">FINELY CRAFTED FURNITURE</p>
+                <p class="text-[10px] text-slate-500">Ground Floor, Kendukona Chowk, Bamungaon, Puthimari, Kamrup, Assam 781380</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-bold bg-amber-100 text-amber-900 px-2 py-1 rounded">${p.id}</span>
+              <p class="text-xs text-slate-500 mt-1">Date: ${p.date}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 text-xs gap-2 py-2 bg-slate-50 p-2 rounded">
+            <p><b>Customer:</b> ${p.customer}</p>
+            <p><b>PO Number:</b> ${p.po}</p>
+            <p><b>Total Cartons:</b> ${totalBoxes} Box(es)</p>
+            <p><b>Gross / Net Weight:</b> ${p.gross} / ${p.net}</p>
+          </div>
+          <table class="w-full text-xs text-left border">
+            <thead class="bg-slate-100 border-b">
+              <tr>
+                <th class="p-2 text-center">#</th>
+                <th class="p-2">Item Code</th>
+                <th class="p-2">Description</th>
+                <th class="p-2">Colour Shade</th>
+                <th class="p-2 text-center">Cartons</th>
+                <th class="p-2 text-right">Quantity</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">${itemsHtml}</tbody>
+            <tfoot class="bg-slate-50 font-bold border-t">
+              <tr>
+                <td colspan="4" class="p-2 text-right uppercase">Consignment Total:</td>
+                <td class="p-2 text-center">${totalBoxes} Boxes</td>
+                <td class="p-2 text-right text-amber-800">${totalUnits} PCS</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+      openModal('modal-preview');
+    }
+
+    function previewGatePass(id) {
+      const g = dispatchRecords.find(d => d.id === id);
+      if (!g) return;
+      document.getElementById('previewTitle').innerText = 'Gate Pass Preview: ' + g.id;
+      document.getElementById('btnPdfDirect').onclick = () => downloadGatePassPDF(g.id);
+
+      document.getElementById('printableModalContent').innerHTML = `
+        <div class="border p-4 bg-white space-y-4">
+          <div class="flex justify-between items-center border-b pb-3">
+            <div class="flex items-center gap-3">
+              <img src="${FURNIFORGE_LOGO_PNG}" class="w-12 h-12 object-contain" alt="Logo" />
+              <div>
+                <h2 class="text-xl font-black text-slate-900 tracking-wider">FURNIFORGE</h2>
+                <p class="text-xs text-amber-700 font-bold">OUTWARD VEHICLE GATE PASS</p>
+                <p class="text-[10px] text-slate-500">Ground Floor, Kendukona Chowk, Bamungaon, Puthimari, Kamrup, Assam 781380</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-xs font-bold bg-slate-900 text-white px-2 py-1 rounded">${g.id}</span>
+              <p class="text-xs text-slate-500 mt-1">${g.date}</p>
+            </div>
+          </div>
+          <table class="w-full text-xs text-left border">
+            <tbody class="divide-y">
+              <tr><td class="p-2 font-bold bg-slate-50 w-1/3">Vehicle Number</td><td class="p-2 font-mono font-bold">${g.vehicle}</td></tr>
+              <tr><td class="p-2 font-bold bg-slate-50">Transporter</td><td class="p-2">${g.transporter}</td></tr>
+              <tr><td class="p-2 font-bold bg-slate-50">Driver Details</td><td class="p-2">${g.driver} (${g.phone})</td></tr>
+              <tr><td class="p-2 font-bold bg-slate-50">Linked Packing Slip</td><td class="p-2 font-bold text-amber-700">${g.slipId}</td></tr>
+              <tr><td class="p-2 font-bold bg-slate-50">Destination</td><td class="p-2">${g.dest}</td></tr>
+              <tr><td class="p-2 font-bold bg-slate-50">Container / Seal #</td><td class="p-2">${g.seal}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+      openModal('modal-preview');
+    }
+
+    // Initial Load
+    renderAll();
+  </script>
+</body>
+</html>
