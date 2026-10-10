@@ -19,7 +19,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
-    /* Smooth horizontal scrollbar styling for mobile touch */
     .table-scroll-container::-webkit-scrollbar {
       height: 8px;
     }
@@ -49,7 +48,6 @@
   <header class="bg-slate-900 text-white shadow-md border-b-4 border-amber-600">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-4">
       <div class="flex items-center gap-3">
-        <!-- Monogram Logo -->
         <img id="appHeaderLogo" class="w-12 h-12 bg-white rounded p-1 shadow object-contain" alt="FURNIFORGE" />
         <div>
           <div class="flex items-center gap-2">
@@ -147,7 +145,7 @@
           <p class="text-xs text-slate-500">Scan QR stickers directly using mobile cameras or barcode guns for instant stock entry.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button onclick="openQRScannerModal()" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-black px-3.5 py-1.5 rounded-lg shadow flex items-center gap-1.5 transition">
+          <button onclick="openQRScannerModal('inward')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-black px-3.5 py-1.5 rounded-lg shadow flex items-center gap-1.5 transition">
             <svg class="w-4 h-4 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
             📷 Scan QR to Inward
           </button>
@@ -233,7 +231,7 @@
               <th class="p-3">Vehicle Number</th>
               <th class="p-3">Transporter</th>
               <th class="p-3">Driver Name & Contact</th>
-              <th class="p-3">Linked Packing Slip</th>
+              <th class="p-3">Linked Packing Slips</th>
               <th class="p-3">Destination</th>
               <th class="p-3 text-center">Downloads & Actions</th>
             </tr>
@@ -245,17 +243,16 @@
 
   </main>
 
-  <!-- Footer with Design Credit -->
   <footer class="bg-slate-900 border-t border-slate-800 text-slate-400 py-4 mt-8 no-print">
     <div class="max-w-7xl mx-auto px-4 text-center text-xs tracking-wider uppercase font-semibold">
-      &copy;  FURNIFORGE VENTURES. DEVELOPED BY KAMAL JYOTI SARMA
+      &copy; FURNIFORGE VENTURES. DEVELOPED BY KAMAL JYOTI SARMA
     </div>
   </footer>
 
   <!-- MODALS -->
 
-  <!-- Modal: Live QR Scanner with Single-Scan Pause Overlay -->
-  <div id="modal-qr-scanner" class="fixed inset-0 bg-slate-900/75 hidden items-center justify-center p-4 z-50">
+  <!-- Modal: Live QR Scanner (Dual-Mode: Inward Stock or Packing Slip Item Select) -->
+  <div id="modal-qr-scanner" class="fixed inset-0 bg-slate-900/80 hidden items-center justify-center p-4 z-[70]">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
       <div class="flex justify-between items-center border-b pb-3">
         <div class="flex items-center gap-2">
@@ -263,8 +260,8 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
           </span>
           <div>
-            <h3 class="text-base font-black text-slate-900">Single-Item QR Inward Scanner</h3>
-            <p class="text-[11px] text-slate-500">Scans one carton at a time to prevent duplicate entry</p>
+            <h3 class="text-base font-black text-slate-900" id="qrModalHeading">Single-Item QR Inward Scanner</h3>
+            <p class="text-[11px] text-slate-500" id="qrModalSub">Scans QR sticker to identify item</p>
           </div>
         </div>
         <button onclick="closeQRScannerModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
@@ -279,25 +276,24 @@
             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
           </div>
           <div>
-            <h4 class="text-sm font-black text-white" id="qr-scan-item-title">Item Inwarded</h4>
+            <h4 class="text-sm font-black text-white" id="qr-scan-item-title">Item Scanned</h4>
             <p class="text-xs text-emerald-400 font-mono mt-0.5" id="qr-scan-item-detail"></p>
           </div>
-          <button onclick="resumeScanningNextItem()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center gap-1.5">
+          <button id="qrResumeBtn" onclick="resumeScanningNextItem()" class="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl shadow-lg transition transform active:scale-95 flex items-center gap-1.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
             Scan Next Carton
           </button>
         </div>
       </div>
 
-      <!-- Photo Picker Fallback -->
       <label class="w-full bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-lg p-2 text-center text-xs font-bold cursor-pointer flex items-center justify-center gap-1.5 transition">
         <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
         Snap Photo / Pick Image
         <input type="file" accept="image/*" capture="environment" onchange="scanQrFromImageFile(event)" class="hidden">
       </label>
 
-      <!-- Inward Step Qty -->
-      <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border text-xs">
+      <!-- Step Qty (Hidden during Packing Mode) -->
+      <div id="qrInwardStepBox" class="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg border text-xs">
         <span class="font-bold text-slate-700">Inward Qty per Scan:</span>
         <div class="flex items-center gap-1.5">
           <input type="number" id="qr-inward-step" value="1" min="1" class="w-16 border rounded p-1 text-center font-bold text-sm bg-white">
@@ -305,7 +301,6 @@
         </div>
       </div>
 
-      <!-- USB Gun Input -->
       <input type="text" id="qr-manual-input" onkeydown="handleManualScannerInput(event)" placeholder="USB Scanner Gun auto-reads here..." class="w-full border rounded-lg p-2 text-xs font-mono bg-white outline-none focus:border-purple-500">
 
       <div class="flex justify-end pt-1">
@@ -487,7 +482,7 @@
     </div>
   </div>
 
-  <!-- Modal: Edit Item Alert Limits -->
+  <!-- Modal: Configure Limits -->
   <div id="modal-edit-limits" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
       <div>
@@ -562,9 +557,15 @@
         </div>
 
         <div class="border rounded-lg p-3 space-y-3">
-          <div class="flex justify-between items-center">
+          <div class="flex flex-wrap justify-between items-center gap-2">
             <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700">Add Finished Goods to Slip</h4>
-            <span class="text-xs text-amber-700 font-semibold" id="cartonCounterSummary">Total Cartons: 0 | Total Qty: 0</span>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="openQRScannerModal('packing')" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-black px-3 py-1.5 rounded-lg shadow flex items-center gap-1.5 transition">
+                <svg class="w-3.5 h-3.5 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>
+                📷 Scan QR to Add Item
+              </button>
+              <span class="text-xs text-amber-700 font-semibold" id="cartonCounterSummary">Total Cartons: 0 | Total Qty: 0</span>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-12 gap-2 bg-amber-50/50 p-2.5 rounded border border-amber-200 items-end">
@@ -598,7 +599,7 @@
                 </tr>
               </thead>
               <tbody id="mps-items-table-body" class="divide-y divide-slate-100">
-                <tr><td colspan="6" class="p-4 text-center text-slate-400">No items added yet. Choose a product above and click "+ Add Product".</td></tr>
+                <tr><td colspan="6" class="p-4 text-center text-slate-400">No items added yet. Choose a product above or scan a carton QR.</td></tr>
               </tbody>
             </table>
           </div>
@@ -623,9 +624,9 @@
     </div>
   </div>
 
-  <!-- Modal: Record Vehicle Dispatch -->
+  <!-- Modal: Record Vehicle Dispatch (Multi-Slip Selection) -->
   <div id="modal-dispatch" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto">
       <h3 class="text-lg font-bold text-slate-800">Record Vehicle Gate-Out</h3>
       <form onsubmit="saveDispatch(event)" class="space-y-3">
         <div>
@@ -646,10 +647,18 @@
             <input type="text" id="disp-phone" required placeholder="e.g. 9876543210" class="w-full border rounded-lg p-2 text-sm">
           </div>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Link Packing Slip</label>
-          <select id="disp-slip" class="w-full border rounded-lg p-2 text-sm"></select>
+
+        <!-- Multi-Packing Slip Selection Container -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-center">
+            <label class="block text-xs font-semibold text-slate-700">Link Packing Slips (Select One or More)</label>
+            <span id="selectedSlipsCount" class="text-[11px] font-bold text-amber-700">0 Slips Selected</span>
+          </div>
+          <div id="disp-slips-list" class="max-h-44 overflow-y-auto border rounded-lg p-2 divide-y divide-slate-100 bg-slate-50 space-y-1">
+            <!-- Dynamically Populated Checkboxes -->
+          </div>
         </div>
+
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">Destination City / Site</label>
           <input type="text" id="disp-dest" required placeholder="e.g. Guwahati Distribution Hub" class="w-full border rounded-lg p-2 text-sm">
@@ -682,7 +691,6 @@
   </div>
 
   <script>
-    // EXACT MONOGRAM LOGO DATA URL
     function generateFurniForgeLogoDataUrl() {
       const c = document.createElement('canvas');
       c.width = 400;
@@ -729,7 +737,6 @@
       initFirebaseFromStorage();
     });
 
-    // Master State Management
     let sfgStock = JSON.parse(localStorage.getItem('ff_sfg_master')) || [
       { id: '1', code: 'SFG-FRM-01', desc: 'Heavy Tubular Frame Weldment', shade: 'RAL 9005 Matte Black', stage: 'MIG/TIG Welding Stage', qty: 45, lowLimit: 25, critLimit: 10 },
       { id: '2', code: 'SFG-PLT-04', desc: 'CNC Cut Base Plates 12mm', shade: 'Raw Primer Gray', stage: 'Shot Blasting & Pickling', qty: 12, lowLimit: 25, critLimit: 10 },
@@ -766,7 +773,7 @@
         transporter: 'Apex Fleet Logistics',
         driver: 'Ramesh Singh',
         phone: '9822019920',
-        slipId: 'PS-FF-1001',
+        slipIds: ['PS-FF-1001'],
         dest: 'Guwahati Distribution Hub',
         seal: 'SEAL-8890'
       }
@@ -775,7 +782,6 @@
     let currentDraftPackingItems = [];
     let editBackupOldItems = null;
 
-    // Firebase live state
     let fbDatabase = null;
     let isCloudConnected = false;
     let isSyncingFromCloud = false;
@@ -789,10 +795,11 @@
     }
 
     // ========================================================
-    // SINGLE-SCAN QR CODE SCANNER (WITH FREEZE LOCKOUT)
+    // QR CODE SCANNER (DUAL MODE)
     // ========================================================
     let html5QrScanner = null;
     let isProcessingScan = false;
+    let scannerCurrentMode = 'inward'; // 'inward' or 'packing'
 
     function playScanBeep() {
       try {
@@ -809,11 +816,25 @@
       } catch(e) {}
     }
 
-    function openQRScannerModal() {
+    function openQRScannerModal(mode = 'inward') {
+      scannerCurrentMode = mode;
       isProcessingScan = false;
       document.getElementById('qr-freeze-overlay').classList.add('hidden');
       document.getElementById('qr-freeze-overlay').classList.remove('flex');
       document.getElementById('qr-manual-input').value = '';
+
+      if (mode === 'packing') {
+        document.getElementById('qrModalHeading').innerText = "Scan QR to Select Item for Slip";
+        document.getElementById('qrModalSub').innerText = "Identifies Finished Good; update Packing Qty manually";
+        document.getElementById('qrInwardStepBox').classList.add('hidden');
+        document.getElementById('qrResumeBtn').innerText = "Done / Return to Slip";
+      } else {
+        document.getElementById('qrModalHeading').innerText = "Single-Item QR Inward Scanner";
+        document.getElementById('qrModalSub').innerText = "Scans one carton at a time to prevent duplicate entry";
+        document.getElementById('qrInwardStepBox').classList.remove('hidden');
+        document.getElementById('qrResumeBtn').innerText = "Scan Next Carton";
+      }
+
       openModal('modal-qr-scanner');
 
       if (!html5QrScanner) {
@@ -835,15 +856,23 @@
     }
 
     function closeQRScannerModal() {
-      isProcessingScan = false;
-      if (html5QrScanner && html5QrScanner.isScanning) {
-        html5QrScanner.stop().catch(err => console.error(err));
-      }
-      closeModal('modal-qr-scanner');
-    }
+  isProcessingScan = false;
+  if (html5QrScanner && html5QrScanner.isScanning) {
+    html5QrScanner.stop().catch(err => console.error(err));
+  }
+  closeModal('modal-qr-scanner');
+
+  // If scanning from within the Packing Slip modal, keep the slip modal active and focus on Qty
+  if (scannerCurrentMode === 'packing') {
+    setTimeout(() => {
+      const qtyInput = document.getElementById('mps-item-qty');
+      if (qtyInput) qtyInput.focus();
+    }, 100);
+  }
+}
 
     function onQrScanFailure(error) {
-      // Quietly continue on unread frames
+      // Quietly ignore scan failures
     }
 
     function onQrScanSuccess(decodedText, decodedResult) {
@@ -859,6 +888,12 @@
     }
 
     function resumeScanningNextItem() {
+      if (scannerCurrentMode === 'packing') {
+        closeQRScannerModal();
+        document.getElementById('mps-item-qty').focus();
+        return;
+      }
+
       document.getElementById('qr-freeze-overlay').classList.add('hidden');
       document.getElementById('qr-freeze-overlay').classList.remove('flex');
       isProcessingScan = false;
@@ -872,55 +907,91 @@
     }
 
     function processScannedData(text) {
-      let code = "", name = "", shade = "Standard", qtyToAdd = parseInt(document.getElementById('qr-inward-step').value) || 1;
+  let code = "", name = "", shade = "Standard", qtyToAdd = parseInt(document.getElementById('qr-inward-step').value) || 1;
 
-      try {
-        const parsed = JSON.parse(text);
-        code = (parsed.code || parsed.sku || "").toString().trim().toUpperCase();
-        name = (parsed.name || parsed.desc || "").toString().trim();
-        shade = (parsed.shade || parsed.colour || "Standard").toString().trim();
-        if (parsed.qty && !isNaN(parsed.qty)) qtyToAdd = parseInt(parsed.qty);
-      } catch (e) {
-        const parts = text.split(/[,|;]/).map(p => p.trim());
-        if (parts.length >= 1) code = parts[0].toUpperCase();
-        if (parts.length >= 2) name = parts[1];
-        if (parts.length >= 3) shade = parts[2];
-        if (parts.length >= 4 && !isNaN(parts[3])) qtyToAdd = parseInt(parts[3]);
-      }
+  // 1. Read the text from the QR Code
+  try {
+    const parsed = JSON.parse(text);
+    code = (parsed.code || parsed.sku || "").toString().trim().toUpperCase();
+    name = (parsed.name || parsed.desc || "").toString().trim();
+    shade = (parsed.shade || parsed.colour || "Standard").toString().trim();
+    if (parsed.qty && !isNaN(parsed.qty)) qtyToAdd = parseInt(parsed.qty);
+  } catch (e) {
+    const parts = text.split(/[,|;]/).map(p => p.trim());
+    if (parts.length >= 1) code = parts[0].toUpperCase();
+    if (parts.length >= 2) name = parts[1];
+    if (parts.length >= 3) shade = parts[2];
+    if (parts.length >= 4 && !isNaN(parts[3])) qtyToAdd = parseInt(parts[3]);
+  }
 
-      if (!code) {
-        alert(`Unrecognized QR code text: "${text}"`);
-        resumeScanningNextItem();
-        return;
-      }
+  if (!code) {
+    alert(`Unrecognized QR code text: "${text}"`);
+    resumeScanningNextItem();
+    return;
+  }
 
-      let fg = fgStock.find(f => f.code === code && f.shade.toLowerCase() === shade.toLowerCase());
-      let totalNow = qtyToAdd;
-
-      if (fg) {
-        fg.qty += qtyToAdd;
-        totalNow = fg.qty;
-      } else {
-        fgStock.unshift({
-          id: Date.now().toString(),
-          code: code,
-          name: name || code,
-          shade: shade,
-          qty: qtyToAdd,
-          lowLimit: 25,
-          critLimit: 10
-        });
-      }
-
-      saveAll();
-      renderFG();
-
-      document.getElementById('qr-scan-item-title').innerText = `${code} (${shade})`;
-      document.getElementById('qr-scan-item-detail').innerText = `+${qtyToAdd} Inwarded | Total Stock: ${totalNow} units`;
-      const overlay = document.getElementById('qr-freeze-overlay');
-      overlay.classList.remove('hidden');
-      overlay.classList.add('flex');
+  // 2. CHECK: Are we scanning inside "Packing Slip" or "Inward Stock"?
+  if (scannerCurrentMode === 'packing') {
+    // Look for this item in Finished Goods
+    let fg = fgStock.find(f => f.code === code && f.shade.toLowerCase() === shade.toLowerCase());
+    if (!fg) {
+      fg = fgStock.find(f => f.code === code);
     }
+
+    if (!fg) {
+      alert(`Product ${code} (${shade}) was not found in Finished Goods master inventory! Please add it first.`);
+      resumeScanningNextItem();
+      return;
+    }
+
+    // Auto-select the item in the Packing Slip dropdown
+    populateMPSItemSelect();
+    const select = document.getElementById('mps-item-select');
+    select.value = fg.id;
+
+    // Show green checkmark overlay for 1 second so you know it scanned
+    document.getElementById('qr-scan-item-title').innerText = `${fg.code} - ${fg.name}`;
+    document.getElementById('qr-scan-item-detail').innerText = `Item Selected! Returning to Packing Slip...`;
+    const overlay = document.getElementById('qr-freeze-overlay');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+
+    // Automatically close the scanner modal and put cursor in the "Qty" box
+    setTimeout(() => {
+      closeQRScannerModal();
+      document.getElementById('mps-item-qty').focus();
+    }, 1000);
+
+  } else {
+    // 3. Regular Inward Stock logic (when scanning from Finished Goods tab)
+    let fg = fgStock.find(f => f.code === code && f.shade.toLowerCase() === shade.toLowerCase());
+    let totalNow = qtyToAdd;
+
+    if (fg) {
+      fg.qty += qtyToAdd;
+      totalNow = fg.qty;
+    } else {
+      fgStock.unshift({
+        id: Date.now().toString(),
+        code: code,
+        name: name || code,
+        shade: shade,
+        qty: qtyToAdd,
+        lowLimit: 25,
+        critLimit: 10
+      });
+    }
+
+    saveAll();
+    renderFG();
+
+    document.getElementById('qr-scan-item-title').innerText = `${code} (${shade})`;
+    document.getElementById('qr-scan-item-detail').innerText = `+${qtyToAdd} Inwarded | Total Stock: ${totalNow} units`;
+    const overlay = document.getElementById('qr-freeze-overlay');
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+  }
+}
 
     function handleManualScannerInput(e) {
       if (e.key === 'Enter') {
@@ -1037,7 +1108,10 @@
             sfgStock = val.sfgStock || [];
             fgStock = val.fgStock || [];
             packingSlips = val.packingSlips || [];
-            dispatchRecords = val.dispatchRecords || [];
+            dispatchRecords = (val.dispatchRecords || []).map(d => {
+              if (d.slipId && !d.slipIds) d.slipIds = [d.slipId];
+              return d;
+            });
 
             localStorage.setItem('ff_sfg_master', JSON.stringify(sfgStock));
             localStorage.setItem('ff_fg_master', JSON.stringify(fgStock));
@@ -1103,7 +1177,10 @@
           sfgStock = parsed.data.sfgStock || [];
           fgStock = parsed.data.fgStock || [];
           packingSlips = parsed.data.packingSlips || [];
-          dispatchRecords = parsed.data.dispatchRecords || [];
+          dispatchRecords = (parsed.data.dispatchRecords || []).map(d => {
+            if (d.slipId && !d.slipIds) d.slipIds = [d.slipId];
+            return d;
+          });
 
           saveAll();
           renderAll();
@@ -1134,7 +1211,7 @@
     }
 
     function openModal(id) {
-      if (id === 'modal-dispatch') populateSlipSelect();
+      if (id === 'modal-dispatch') populateDispatchSlipsCheckboxes();
       document.getElementById(id).classList.remove('hidden');
       document.getElementById(id).classList.add('flex');
     }
@@ -1355,21 +1432,26 @@
 
     function renderDispatch() {
       const tbody = document.getElementById('dispatch-table-body');
-      tbody.innerHTML = dispatchRecords.map((d, idx) => `
-        <tr class="hover:bg-slate-50">
-          <td class="p-3 font-bold text-slate-900">${d.id}</td>
-          <td class="p-3 text-xs text-slate-500">${d.date}</td>
-          <td class="p-3 font-mono font-bold text-slate-800">${d.vehicle}</td>
-          <td class="p-3 text-slate-700">${d.transporter}</td>
-          <td class="p-3 text-slate-800 text-xs"><b>${d.driver}</b><br><span class="text-slate-500">${d.phone}</span></td>
-          <td class="p-3"><span class="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-mono text-xs font-bold border border-amber-200">${d.slipId}</span></td>
-          <td class="p-3 text-slate-700 text-xs">${d.dest}</td>
-          <td class="p-3 text-center space-x-1">
-            <button onclick="previewGatePass('${d.id}')" class="bg-slate-100 hover:bg-slate-200 border text-slate-700 text-xs font-bold px-2 py-1 rounded">View</button>
-            <button onclick="downloadGatePassPDF('${d.id}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-2 py-1 rounded">PDF</button>
-          </td>
-        </tr>
-      `).join('');
+      tbody.innerHTML = dispatchRecords.map((d, idx) => {
+        const slipList = d.slipIds && d.slipIds.length ? d.slipIds : (d.slipId ? [d.slipId] : []);
+        const slipsBadge = slipList.map(s => `<span class="inline-block px-1.5 py-0.5 m-0.5 rounded bg-amber-50 text-amber-800 font-mono text-[11px] font-bold border border-amber-200">${s}</span>`).join('');
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="p-3 font-bold text-slate-900">${d.id}</td>
+            <td class="p-3 text-xs text-slate-500">${d.date}</td>
+            <td class="p-3 font-mono font-bold text-slate-800">${d.vehicle}</td>
+            <td class="p-3 text-slate-700">${d.transporter}</td>
+            <td class="p-3 text-slate-800 text-xs"><b>${d.driver}</b><br><span class="text-slate-500">${d.phone}</span></td>
+            <td class="p-3 max-w-xs">${slipsBadge || '<span class="text-slate-400">Direct</span>'}</td>
+            <td class="p-3 text-slate-700 text-xs">${d.dest}</td>
+            <td class="p-3 text-center space-x-1">
+              <button onclick="previewGatePass('${d.id}')" class="bg-slate-100 hover:bg-slate-200 border text-slate-700 text-xs font-bold px-2 py-1 rounded">View</button>
+              <button onclick="downloadGatePassPDF('${d.id}')" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-2 py-1 rounded">PDF</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function renderAll() {
@@ -1501,8 +1583,12 @@
 
     function populateMPSItemSelect() {
       const select = document.getElementById('mps-item-select');
+      const currentSelectedVal = select.value;
       select.innerHTML = '<option value="">-- Choose Finished Product --</option>' +
         fgStock.map(f => `<option value="${f.id}">${f.code} - ${f.name} [Shade: ${f.shade}] (Available Stock: ${f.qty})</option>`).join('');
+      if (currentSelectedVal) {
+        select.value = currentSelectedVal;
+      }
     }
 
     function addPackingItemRow() {
@@ -1598,14 +1684,54 @@
       }
     }
 
-    function populateSlipSelect() {
-      const select = document.getElementById('disp-slip');
-      select.innerHTML = '<option value="DIRECT">Direct / Advance Delivery</option>' +
-        packingSlips.map(s => `<option value="${s.id}">${s.id} - ${s.customer}</option>`).join('');
+    // MULTI-PACKING SLIP SELECTOR FOR VEHICLE GATE PASS
+    function populateDispatchSlipsCheckboxes() {
+      const container = document.getElementById('disp-slips-list');
+      if (packingSlips.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 p-2">No Packing Slips available yet. Create one first.</p>';
+        updateSelectedSlipsCount();
+        return;
+      }
+
+      container.innerHTML = packingSlips.map(s => {
+        const totalUnits = (s.items || []).reduce((acc, cur) => acc + cur.qty, 0);
+        const totalBoxes = s.totalBoxes || (s.items || []).reduce((acc, cur) => acc + (cur.boxes || 0), 0);
+
+        return `
+          <label class="flex items-start gap-2.5 p-2 hover:bg-white rounded cursor-pointer transition">
+            <input type="checkbox" name="disp-slip-check" value="${s.id}" onchange="updateSelectedSlipsCount()" class="mt-1 rounded text-amber-600 focus:ring-amber-500">
+            <div class="text-xs flex-grow">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-amber-800 font-mono">${s.id}</span>
+                <span class="text-[10px] text-slate-500 font-semibold">${totalBoxes} Cartons | ${totalUnits} Pcs</span>
+              </div>
+              <p class="text-slate-800 font-semibold truncate">${s.customer}</p>
+              <p class="text-[10px] text-slate-500">PO: ${s.po} | Date: ${s.date}</p>
+            </div>
+          </label>
+        `;
+      }).join('');
+
+      updateSelectedSlipsCount();
+    }
+
+    function updateSelectedSlipsCount() {
+      const checkedBoxes = document.querySelectorAll('input[name="disp-slip-check"]:checked');
+      const count = checkedBoxes.length;
+      document.getElementById('selectedSlipsCount').innerText = `${count} Slip${count === 1 ? '' : 's'} Selected`;
     }
 
     function saveDispatch(e) {
       e.preventDefault();
+
+      const selectedCheckboxes = Array.from(document.querySelectorAll('input[name="disp-slip-check"]:checked'));
+      const selectedSlipIds = selectedCheckboxes.map(cb => cb.value);
+
+      if (selectedSlipIds.length === 0) {
+        alert("Please select at least ONE packing slip to link to this vehicle gate pass.");
+        return;
+      }
+
       const newGatePass = {
         id: 'GP-FF-' + Math.floor(100 + Math.random() * 900),
         date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -1613,7 +1739,7 @@
         transporter: document.getElementById('disp-trans').value.trim(),
         driver: document.getElementById('disp-driver').value.trim(),
         phone: document.getElementById('disp-phone').value.trim(),
-        slipId: document.getElementById('disp-slip').value,
+        slipIds: selectedSlipIds,
         dest: document.getElementById('disp-dest').value.trim(),
         seal: document.getElementById('disp-seal').value.trim() || 'N/A'
       };
@@ -1763,7 +1889,6 @@
       doc.setFillColor(15, 23, 42);
       doc.rect(0, 0, 595.28, 92, 'F');
 
-      // Monogram Logo
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(36, 16, 58, 58, 4, 4, 'F');
       doc.addImage(FURNIFORGE_LOGO_PNG, 'PNG', 41, 21, 48, 48);
@@ -1873,7 +1998,6 @@
       doc.setFillColor(15, 23, 42);
       doc.rect(0, 0, 595.28, 92, 'F');
 
-      // Monogram Logo
       doc.setFillColor(255, 255, 255);
       doc.roundedRect(36, 16, 58, 58, 4, 4, 'F');
       doc.addImage(FURNIFORGE_LOGO_PNG, 'PNG', 41, 21, 48, 48);
@@ -1901,6 +2025,18 @@
       doc.setTextColor(217, 119, 6);
       doc.text('PASS REF: ' + g.id, 440, 125);
 
+      const slipList = g.slipIds && g.slipIds.length ? g.slipIds : (g.slipId ? [g.slipId] : []);
+      const formattedSlips = slipList.join(', ');
+
+      const detailedSlipsData = slipList.map(sId => {
+        const found = packingSlips.find(ps => ps.id === sId);
+        if (found) {
+          const totBoxes = found.totalBoxes || (found.items || []).reduce((a, b) => a + (b.boxes || 0), 0);
+          return `${sId} (${found.customer} - ${totBoxes} Boxes)`;
+        }
+        return sId;
+      }).join('\n');
+
       doc.autoTable({
         startY: 145,
         margin: { left: 36, right: 36 },
@@ -1911,7 +2047,7 @@
           ['Transporter / Carrier', g.transporter],
           ['Driver Name', g.driver],
           ['Driver Mobile Number', g.phone],
-          ['Linked Packing Slip #', g.slipId],
+          ['Linked Packing Slip(s)', detailedSlipsData || formattedSlips],
           ['Final Destination', g.dest],
           ['Truck / Container Seal #', g.seal]
         ],
@@ -1935,7 +2071,7 @@
       doc.text('SECURITY INSTRUCTIONS:', 46, noteY + 16);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(180, 83, 9);
-      doc.text('Security personnel must inspect physical consignment against referenced Packing Slip before gate opening.', 46, noteY + 30);
+      doc.text('Security personnel must inspect physical consignment against ALL referenced Packing Slips before gate opening.', 46, noteY + 30);
 
       const signY = noteY + 100;
       doc.setDrawColor(148, 163, 184);
@@ -2026,6 +2162,20 @@
       document.getElementById('previewTitle').innerText = 'Gate Pass Preview: ' + g.id;
       document.getElementById('btnPdfDirect').onclick = () => downloadGatePassPDF(g.id);
 
+      const slipList = g.slipIds && g.slipIds.length ? g.slipIds : (g.slipId ? [g.slipId] : []);
+      const slipsHtml = slipList.map(sId => {
+        const found = packingSlips.find(ps => ps.id === sId);
+        if (found) {
+          const totBoxes = found.totalBoxes || (found.items || []).reduce((a, b) => a + (b.boxes || 0), 0);
+          return `<div class="bg-amber-50 p-2 rounded border border-amber-200 mb-1">
+            <span class="font-bold text-amber-900 font-mono">${sId}</span> - 
+            <span class="font-semibold text-slate-800">${found.customer}</span>
+            <span class="text-xs text-slate-500 font-medium ml-2">(${totBoxes} Cartons, PO: ${found.po})</span>
+          </div>`;
+        }
+        return `<span class="px-2 py-1 rounded bg-amber-50 font-mono text-amber-800 font-bold border border-amber-200">${sId}</span>`;
+      }).join('');
+
       document.getElementById('printableModalContent').innerHTML = `
         <div class="border p-4 bg-white space-y-4">
           <div class="flex justify-between items-center border-b pb-3">
@@ -2047,7 +2197,7 @@
               <tr><td class="p-2 font-bold bg-slate-50 w-1/3">Vehicle Number</td><td class="p-2 font-mono font-bold">${g.vehicle}</td></tr>
               <tr><td class="p-2 font-bold bg-slate-50">Transporter</td><td class="p-2">${g.transporter}</td></tr>
               <tr><td class="p-2 font-bold bg-slate-50">Driver Details</td><td class="p-2">${g.driver} (${g.phone})</td></tr>
-              <tr><td class="p-2 font-bold bg-slate-50">Linked Packing Slip</td><td class="p-2 font-bold text-amber-700">${g.slipId}</td></tr>
+              <tr><td class="p-2 font-bold bg-slate-50">Linked Packing Slip(s)</td><td class="p-2">${slipsHtml}</td></tr>
               <tr><td class="p-2 font-bold bg-slate-50">Destination</td><td class="p-2">${g.dest}</td></tr>
               <tr><td class="p-2 font-bold bg-slate-50">Container / Seal #</td><td class="p-2">${g.seal}</td></tr>
             </tbody>
@@ -2062,3 +2212,4 @@
   </script>
 </body>
 </html>
+    
